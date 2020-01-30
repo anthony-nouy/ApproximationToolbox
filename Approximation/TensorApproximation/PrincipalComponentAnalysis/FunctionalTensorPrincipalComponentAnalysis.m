@@ -1,4 +1,10 @@
 % Class FunctionalTensorPrincipalComponentAnalysis
+% 
+% Implementation of the algorithms provided in the following article for the
+% approximation of multivariate functions.
+% 
+% Anthony Nouy. Higher-order principal component analysis for the approximation of
+% tensors in tree-based low-rank formats. Numerische Mathematik, 141(3):743--789, Mar 2019.
 
 % Copyright (c) 2020, Anthony Nouy, Erwan Grelier, Loic Giraldi
 % 
@@ -40,17 +46,16 @@ classdef FunctionalTensorPrincipalComponentAnalysis
             % s.PCATestError (true or false): error estimation for determining the rank for prescribed tolerance
             % s.PCAAdaptiveSampling (true or false): adaptive sampling for determining the principal components with prescribed precision
             % s.PCASamplingFactor: factor for determining the number of samples for the estimation of principal components (1 by default)
+            % s.tol : tolerance (if t is a double <1) or tuple containing the desired ranks.
             
         end
         
         function [f,output] = TTApproximation(FPCA,fun,X,bases,grids,varargin)
-            % [f,outputs] = TTApproximation(FPCA,fun,X,bases,t,grids)
+            % [f,outputs] = TTApproximation(FPCA,fun,X,bases,grids)
             % Approximation of a function in Tensor Train format based on
             % Principal Component Analysis for the estimation of subspaces
             % X: RandomVector of dimension d
             % bases: FunctionalBases or cell containing d FunctionalBasis
-            % t: tolerance (if t is a double <1) or tuple containing the desired  alpha-ranks.
-            % If numel(t)=1, the same rank is used for all alpha
             % grids: FullTensorGrid or cell containing d interpolation grids
             
             d = ndims(X);
@@ -67,7 +72,7 @@ classdef FunctionalTensorPrincipalComponentAnalysis
             if isa(bases,'FunctionalBases')
                 bases = bases.bases;
             end
-            if nargin<6
+            if nargin<5
                 grids = [];
             end
             
@@ -212,13 +217,11 @@ classdef FunctionalTensorPrincipalComponentAnalysis
         end
         
         function [f,output] =  TTTuckerApproximation(FPCA,fun,X,bases,grids,varargin)
-            % [f,outputs] = TTTuckerApproximation(FPCA,fun,X,bases,t,grids)
+            % [f,outputs] = TTTuckerApproximation(FPCA,fun,X,bases,grids)
             % Approximation of a function in Tensor Train Tucker format based on
             % Principal Component Analysis for the estimation of subspaces
             % X: RandomVector of dimension d
             % bases: cell containing d FunctionalBasis or FunctionalBases
-            % t: tolerance (if t is a double <1) or tuple containing the desired  alpha-ranks.
-            % If numel(t)=1, the same rank is used for all alpha
             % grids: FullTensorGrid or cell containing d interpolation grids
             
             d = ndims(X);
@@ -238,7 +241,7 @@ classdef FunctionalTensorPrincipalComponentAnalysis
                 bases = bases.bases;
             end
             
-            if nargin<6
+            if nargin<5
                 grids = [];
             end
             
@@ -291,13 +294,11 @@ classdef FunctionalTensorPrincipalComponentAnalysis
         end
         
         function [f,output] = TuckerApproximation(FPCA,fun,X,bases,varargin)
-            % [f,output] = tuckerApproximation(FPCA,fun,X,bases,t,grids)
+            % [f,output] = tuckerApproximation(FPCA,fun,X,bases,grids)
             % Approximation of a function in Tucker format based on
             % Principal Component Analysis for the estimation of subspaces
             % X: RandomVector of dimension d
             % bases: cell containing d FunctionalBasis or FunctionalBases
-            % t: tolerance (if t is a double <1) or tuple containing the desired  alpha-ranks.
-            % If numel(t)=1, the same rank is used for all alpha
             % grids: FullTensorGrid or cell containing d interpolation grids
             %
             % f: FunctionalTensor with a tensor in Tucker-Like format
@@ -379,20 +380,18 @@ classdef FunctionalTensorPrincipalComponentAnalysis
                 tspace{k}=fpc{k}.basis;
             end
             tspace = TSpaceVectors(tspace);
-            f = FunctionalTensor(TuckerLikeTensor(tcore,tspace),bases);
+            f = FunctionalTensor(TuckerLikeTensor(tcore,tspace),FunctionalBases(bases));
             output.numberOfEvaluations = numberOfEvaluations;
             output.samples = samples;
         end
         
         function [f,output] = TBApproximation(FPCA,fun,X,bases,tree,isActiveNode,grids,varargin)
-            % [f,outputs] = TBApproximation(FPCA,fun,X,bases,tree,t,grids)
+            % [f,outputs] = TBApproximation(FPCA,fun,X,bases,tree,isActiveNode,grids)
             % Approximation of a function in Tree Based tensor format based on
             % Principal Component Analysis for the estimation of subspaces
             % X: RandomVector of dimension d
             % bases: FunctionalBases or cell containing d FunctionalBasis
             % tree: DimensionTree
-            % t: tolerance (if t is a double <1) or tuple containing the desired  alpha-ranks.
-            % If numel(t) = 1, the same rank is used for all alpha
             % isActiveNode: logical array indicating which nodes of the tree are active
             % grids: FullTensorGrid or cell containing d interpolation grids
             
@@ -409,7 +408,7 @@ classdef FunctionalTensorPrincipalComponentAnalysis
             if isa(bases,'FunctionalBases')
                 bases = bases.bases;
             end
-            if nargin<8
+            if nargin<7
                 grids = [];
             end
             
@@ -421,7 +420,7 @@ classdef FunctionalTensorPrincipalComponentAnalysis
                 error('not implemented')
             end
             
-            if nargin<7
+            if nargin<6
                 isActiveNode = true(1,tree.nbNodes);
             end
             
@@ -544,8 +543,6 @@ classdef FunctionalTensorPrincipalComponentAnalysis
             % fun: function of d variables
             % X: RandomVector of dimension d
             % bases: cell containing d FunctionalBasis or FunctionalBases
-            % t: tuple containing tolerance (if t(alpha)<1) or the desired alpha-ranks.
-            % If numel(t)=1, the same tolerance or rank is used for all alpha
             % grids: FullTensorGrid or cell containing d interpolation grids
             % fpc: cell containing the functional alpha-principal components (SubFunctionalBasis) obtained by interpolation on the FunctionalBasis given in bases.
             % outputs: cell containing the outputs of alphaFunctionalPrincipalComponents
@@ -565,7 +562,7 @@ classdef FunctionalTensorPrincipalComponentAnalysis
                 FPCA.tol = repmat(FPCA.tol,1,d);
             end
             
-            if nargin<6
+            if nargin<5
                 grids = [];
             end
             
