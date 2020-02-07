@@ -1,15 +1,15 @@
 % Class TensorPrincipalComponentAnalysis
 %
-% Implementation of the algorithms provided in the following article for a
-% discrete setting.
-% 
+% Approximation of multidimensional arrays (tensors) using higher-order 
+% principal component analysis.
+%
+% Implementation based on the article:
 % Anthony Nouy. Higher-order principal component analysis for the approximation of
 % tensors in tree-based low-rank formats. Numerische Mathematik, 141(3):743--789, Mar 2019.
 
-
-% Copyright (c) 2020, Loic Giraldi, Erwan Grelier, Anthony Nouy
-%
-% This file is part of the Matlab Toolbox ApproximationToolbox.
+% Copyright (c) 2020, Anthony Nouy, Erwan Grelier, Loic Giraldi
+% 
+% This file is part of ApproximationToolbox.
 %
 % ApproximationToolbox is free software: you can redistribute it and/or modify
 % it under the terms of the GNU Lesser General Public License as published by

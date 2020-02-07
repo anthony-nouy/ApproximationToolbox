@@ -1,8 +1,9 @@
 % Class FunctionalTensorPrincipalComponentAnalysis
 % 
-% Implementation of the algorithms provided in the following article for the
-% approximation of multivariate functions.
-% 
+% Approximation of multivariate functions using higher-order principal
+% component analysis.
+%
+% Implementation based on the article:
 % Anthony Nouy. Higher-order principal component analysis for the approximation of
 % tensors in tree-based low-rank formats. Numerische Mathematik, 141(3):743--789, Mar 2019.
 

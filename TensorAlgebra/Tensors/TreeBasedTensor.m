@@ -1,4 +1,16 @@
 % Class TreeBasedTensor: algebraic tensors in tree-based tensor format
+%
+% References:
+% - Nouy, A. (2017). Low-rank methods for high-dimensional approximation 
+% and model order reduction. Model reduction and approximation, P. Benner, 
+% A. Cohen, M. Ohlberger, and K. Willcox, eds., SIAM, Philadelphia, PA, 171-226.
+% - Falcó, A., Hackbusch, W., & Nouy, A. (2018). Tree-based tensor formats. 
+% SeMA Journal, 1-15
+% - Grelier, E., Nouy, A., & Chevreuil, M. (2018). Learning with tree-based 
+% tensor formats. arXiv preprint arXiv:1811.04455
+% - Nouy, A. (2019). Higher-order principal component analysis for the 
+% approximation of tensors in tree-based low-rank formats. Numerische 
+% Mathematik, 141(3), 743-789
 
 % Copyright (c) 2020, Anthony Nouy, Erwan Grelier, Loic Giraldi
 % 

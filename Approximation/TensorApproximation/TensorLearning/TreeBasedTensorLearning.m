@@ -1,4 +1,11 @@
 % Class TreeBasedTensorLearning: learning with tree-based tensor formats
+%
+% References:
+% - Grelier, E., Nouy, A., & Chevreuil, M. (2018). Learning with tree-based 
+% tensor formats. arXiv preprint arXiv:1811.04455
+% - Grelier, E., Nouy, A., & Lebrun, R. (2019). Learning high-dimensional 
+% probability distributions using tree tensor networks. arXiv preprint 
+% arXiv:1912.07913.
 
 % Copyright (c) 2020, Anthony Nouy, Erwan Grelier, Loic Giraldi
 % 

@@ -1,10 +1,10 @@
 % function I = randomMultiIndices(sz)
-% Returns a random vector uniformly distributed on I1x...xId
-% sz : 1-by-d array or cell array 
-% I : RandomVector
+% Returns a random variable uniformly distributed on I1x...xId
+% sz: 1-by-d array or cell array 
+% I: RandomVector
 % 
-% if sz is a 1-by-d array, then Ik = {1,....sz(k)}
-% if sz is a cell array, then Ik = sz{k}  
+% if sz is a 1-by-d array of integers, then Ik = {1,....sz(k)}
+% if sz is a 1-by-d cell, then Ik = sz{k}  
 
 % Copyright (c) 2020, Loic Giraldi, Erwan Grelier, Anthony Nouy
 % 
