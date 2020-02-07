@@ -1,5 +1,6 @@
-% Fifth numerical experiment of the article
-% Grelier, E., Nouy, A., & Chevreuil, M. (2018). Learning with tree-based tensor formats. arXiv preprint arXiv:1811.04455.
+% Fourth numerical experiment of the article
+% Grelier, E., Nouy, A., & Chevreuil, M. (2018). Learning with tree-based 
+% tensor formats. arXiv preprint arXiv:1811.04455.
 
 % Copyright (c) 2020, Anthony Nouy, Erwan Grelier, Loic Giraldi
 % 
@@ -21,16 +22,14 @@
 clearvars; clc; close all
 
 %% Function to approximate
-d = 8;
-tree = DimensionTree.balanced(d);
+d = 16;
+m = 3;
 X = RandomVector(UniformRandomVariable(),d);
-fun = @(x1,x2) (2 + x1.*x2).^(2)/9;
-fun = PoggioModelFunction(tree,fun,X);
-fun = UserDefinedFunction(fun,d);
+fun = UserDefinedFunction(@(x) g(x,d,m),d);
 fun.evaluationAtMultiplePoints = true;
 
 %% Approximation basis
-pdegree = 8;
+pdegree = 5;
 h = cellfun(@(x) PolynomialFunctionalBasis(orthonormalPolynomials(x),0:pdegree),X.randomVariables,'UniformOutput',false);
 H = FunctionalBases(h);
 
@@ -42,23 +41,11 @@ xTest = random(X,10000);
 yTest = fun(xTest);
 
 %% Starting tree
-c = 1;
-switch c
-    case 1
-        tree = DimensionTree.balanced(d);
-    case 2
-        tree = DimensionTree.linear(d);
-    otherwise
-        error('Not implemented.')
-end
+tree = DimensionTree.linear(d);
 isActiveNode = true(1,tree.nbNodes);
-
-%% Random shuffling of the dimensions associated to the leaves
-randomize = true;
-if randomize
-    tree.dim2ind = tree.dim2ind(randperm(d));
-    tree = updateDimsFromLeaves(tree);
-end
+% Random shuffling of the dimensions associated to the leaves
+tree.dim2ind = tree.dim2ind(randperm(d));
+tree = updateDimsFromLeaves(tree);
 
 %% Computation of the approximation
 s = TreeBasedTensorLearning(tree,isActiveNode,SquareLossFunction);
@@ -75,10 +62,12 @@ s.testError = true;
 s.testErrorData = {xTest,yTest};
 
 s.rankAdaptation = true;
-s.rankAdaptationOptions.maxIterations = 30;
+s.rankAdaptationOptions.maxIterations = 100;
 
 s.treeAdaptation = true;
 s.treeAdaptationOptions.maxIterations = 1e2;
+% Prevent several tree adaptations in a row
+s.treeAdaptationOptions.forceRankAdaptation = true;
 
 s.alternatingMinimizationParameters.maxIterations = 50;
 s.alternatingMinimizationParameters.stagnation = 1e-10;
@@ -115,3 +104,13 @@ title('Dimensions associated to the leaf nodes')
 subplot(1,2,2)
 plotWithLabelsAtNodes(f.tensor.tree,representationRank(f.tensor))
 title('Representation ranks')
+
+%% Definition of the function to approximate
+function y = g(x,d,m)
+    y = zeros(size(x,1),1);
+    for i = 1:d-1
+        for j = 0:m
+            y = y + x(:,i).^j .* x(:,i+1).^j;
+        end
+    end
+end

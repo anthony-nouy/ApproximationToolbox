@@ -1,6 +1,7 @@
 % Boosted least squares
-% This tutorial is based on the article
-% Boosted Optimal Weighted Least-Squares, Haberstich, Nouy, Perrin, Arxiv 2019
+% Numerical experiment of the article
+% Haberstich, C., Nouy, A., & Perrin, G. (2019). Boosted optimal weighted 
+% least-squares. arXiv preprint arXiv:1912.07075.
 
 % Copyright (c) 2020, Anthony Nouy, Erwan Grelier, Loic Giraldi
 % 

@@ -1,5 +1,7 @@
-% Third numerical experiment of the article
-% Grelier, E., Nouy, A., & Lebrun, R. (2019). Learning high-dimensional probability distributions using tree tensor networks. arXiv preprint arXiv:1912.07913.
+% Fourth numerical experiment of the article
+% Grelier, E., Nouy, A., & Lebrun, R. (2019). Learning high-dimensional 
+% probability distributions using tree tensor networks. arXiv preprint 
+% arXiv:1912.07913.
 
 % Copyright (c) 2020, Anthony Nouy, Erwan Grelier, Loic Giraldi
 % 
@@ -21,41 +23,45 @@
 clearvars, clc, close all
 
 %% Density to approximate
-load data3 P
+A = [0 1 1 0 0 0 1 0 0 0 ; ...
+     1 0 1 0 0 0 1 0 0 0 ; ...
+     1 1 0 1 1 1 1 0 0 0 ; ...
+     0 0 1 0 1 1 0 1 0 0 ; ...
+     0 0 1 1 0 1 0 0 0 0 ; ...
+     0 0 1 1 1 0 0 0 0 0 ; ...
+     1 1 1 0 0 0 0 0 0 0 ; ...
+     0 0 0 1 0 0 0 0 1 1 ; ...
+     0 0 0 0 0 0 0 1 0 1 ; ...
+     0 0 0 0 0 0 0 1 1 0];
 
-d = 8;
-g = graph(diag(ones(d-1,1),1) + diag(ones(d-1,1),-1));
-tensors = repmat({FullTensor(P)},1,d-1);
-u = GraphTensor(g, tensors, d, size(P,1)*ones(1,d));
-u = full(u);
-u.data = u.data ./ size(P,1);
-u.data = u.data .* prod(sqrt(size(P,1)*ones(1,d)));
-XI = RandomVector(DiscreteRandomVariable((1:size(P,1)).'),d);
+p = 5;
+d = size(A,1);
+sz = p*ones(1,d);
+g = graph(A);
+xValues = repmat((1:p).',1,d);
+xValues = mat2cell(xValues,size(xValues,1),ones(1,size(xValues,2)));
+load data4 tensors
+
+graphicalModel = GraphTensor(g, tensors, d, sz);
+u = full(graphicalModel);
+u.data = u.data .* prod(sqrt(sz)) ./ sum(u.data(:));
+
+XI = RandomVector(cellfun(@(x) DiscreteRandomVariable(x),xValues,'UniformOutput',false));
 
 %% Approximation basis
-H = FunctionalBases.duplicate(OrthonormalDeltaFunctionalBasis((1:size(P,1)).'),d);
+H = FunctionalBases(cellfun(@(x) OrthonormalDeltaFunctionalBasis(x),xValues,'UniformOutput',false));
 
 %% Sample generation via rejection sampling
 N = 1e5;
 NTest = 1e5;
 
-x = zeros(N,d);
-x(:,1) = randi(size(P,1),N,1); % Initial test
-for i = 2:d
-    dist = P(x(:,i-1),:);
-    cumdist = cumsum(dist,2);
-    r = rand(N,1);
-    x(:,i) = size(P,1) + 1 - sum(cumdist>r,2);
-end
+ind = cell(1,d); [ind{:}] = ind2sub(sz,randsample(1:prod(sz), N, true, u.data(:))); ind = cellfun(@transpose,ind,'UniformOutput',false);
+x = cellfun(@(x,y) x(y),xValues,ind,'UniformOutput',false);
+x = [x{:}];
 
-xTest = zeros(NTest,d);
-xTest(:,1) = randi(size(P,1),NTest,1); % Initial test
-for i = 2:d
-    dist = P(xTest(:,i-1),:);
-    cumdist = cumsum(dist,2);
-    r = rand(NTest,1);
-    xTest(:,i) = size(P,1) + 1 - sum(cumdist>r,2);
-end
+ind = cell(1,d); [ind{:}] = ind2sub(sz,randsample(1:prod(sz), NTest, true, u.data(:))); ind = cellfun(@transpose,ind,'UniformOutput',false);
+xTest = cellfun(@(x,y) x(y),xValues,ind,'UniformOutput',false);
+xTest = [xTest{:}];
 
 xi = random(XI,1e6);
 

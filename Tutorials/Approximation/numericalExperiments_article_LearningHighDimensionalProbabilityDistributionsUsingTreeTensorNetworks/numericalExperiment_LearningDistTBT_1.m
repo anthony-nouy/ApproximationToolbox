@@ -1,5 +1,7 @@
 % First numerical experiment of the article
-% Grelier, E., Nouy, A., & Lebrun, R. (2019). Learning high-dimensional probability distributions using tree tensor networks. arXiv preprint arXiv:1912.07913.
+% Grelier, E., Nouy, A., & Lebrun, R. (2019). Learning high-dimensional 
+% probability distributions using tree tensor networks. arXiv preprint 
+% arXiv:1912.07913.
 
 % Copyright (c) 2020, Anthony Nouy, Erwan Grelier, Loic Giraldi
 % 

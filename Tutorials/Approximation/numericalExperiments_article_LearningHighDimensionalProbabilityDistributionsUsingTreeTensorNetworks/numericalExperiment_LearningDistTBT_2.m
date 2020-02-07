@@ -1,5 +1,7 @@
-% Fourth numerical experiment of the article
-% Grelier, E., Nouy, A., & Lebrun, R. (2019). Learning high-dimensional probability distributions using tree tensor networks. arXiv preprint arXiv:1912.07913.
+% Second numerical experiment of the article
+% Grelier, E., Nouy, A., & Lebrun, R. (2019). Learning high-dimensional 
+% probability distributions using tree tensor networks. arXiv preprint 
+% arXiv:1912.07913.
 
 % Copyright (c) 2020, Anthony Nouy, Erwan Grelier, Loic Giraldi
 % 
@@ -21,45 +23,32 @@
 clearvars, clc, close all
 
 %% Density to approximate
-A = [0 1 1 0 0 0 1 0 0 0 ; ...
-     1 0 1 0 0 0 1 0 0 0 ; ...
-     1 1 0 1 1 1 1 0 0 0 ; ...
-     0 0 1 0 1 1 0 1 0 0 ; ...
-     0 0 1 1 0 1 0 0 0 0 ; ...
-     0 0 1 1 1 0 0 0 0 0 ; ...
-     1 1 1 0 0 0 0 0 0 0 ; ...
-     0 0 0 1 0 0 0 0 1 1 ; ...
-     0 0 0 0 0 0 0 1 0 1 ; ...
-     0 0 0 0 0 0 0 1 1 0];
-
-p = 5;
-d = size(A,1);
-sz = p*ones(1,d);
-g = graph(A);
-xValues = repmat((1:p).',1,d);
-xValues = mat2cell(xValues,size(xValues,1),ones(1,size(xValues,2)));
-load data4 tensors
-
-graphicalModel = GraphTensor(g, tensors, d, sz);
-u = full(graphicalModel);
-u.data = u.data .* prod(sqrt(sz)) ./ sum(u.data(:));
-
-XI = RandomVector(cellfun(@(x) DiscreteRandomVariable(x),xValues,'UniformOutput',false));
+d = 6;
+S = [2 1/5 0 0 1/4 0 ; 1/5 2 0 0 0 0 ; 0 0 2 0 1/3 1/2 ; 0 0 0 2 0 1 ; 1/4 0 1/3 0 2 0 ; 0 0 1/2 1 0 2];
+u = @(x) mvnpdf(x,zeros(1,d),S)*prod(2*5*sqrt(diag(S))) ./ (mvncdf(5*sqrt(diag(S).'),zeros(1,d),S) - mvncdf(-5*sqrt(diag(S).'),zeros(1,d),S)) .* (all(x >= -5*sqrt(diag(S).'),2) & all(x <= 5*sqrt(diag(S).'),2));
+XI = RandomVector(arrayfun(@(x) UniformRandomVariable(-x,x),5*sqrt(diag(S)),'UniformOutput',false));
 
 %% Approximation basis
-H = FunctionalBases(cellfun(@(x) OrthonormalDeltaFunctionalBasis(x),xValues,'UniformOutput',false));
+pdegree = 50;
+h = cellfun(@(x) PolynomialFunctionalBasis(x,0:pdegree),orthonormalPolynomials(XI),'UniformOutput',false);
+H = FunctionalBases(h);
 
 %% Sample generation via rejection sampling
-N = 1e5;
+N = 1e6;
 NTest = 1e5;
+x = [];
+while length(x) < N
+    s = mvnrnd(zeros(1,d),S,N);
+    x = [x ; s(all(s >= -5*sqrt(diag(S).'),2) & all(s <= 5*sqrt(diag(S).'),2),:)];
+end
+x = x(1:N,:);
 
-ind = cell(1,d); [ind{:}] = ind2sub(sz,randsample(1:prod(sz), N, true, u.data(:))); ind = cellfun(@transpose,ind,'UniformOutput',false);
-x = cellfun(@(x,y) x(y),xValues,ind,'UniformOutput',false);
-x = [x{:}];
-
-ind = cell(1,d); [ind{:}] = ind2sub(sz,randsample(1:prod(sz), NTest, true, u.data(:))); ind = cellfun(@transpose,ind,'UniformOutput',false);
-xTest = cellfun(@(x,y) x(y),xValues,ind,'UniformOutput',false);
-xTest = [xTest{:}];
+xTest = [];
+while length(xTest) < NTest
+    s = mvnrnd(zeros(1,d),S,NTest);
+    xTest = [xTest ; s(all(s >= -5*sqrt(diag(S).'),2) & all(s <= 5*sqrt(diag(S).'),2),:)];
+end
+xTest = xTest(1:NTest,:);
 
 xi = random(XI,1e6);
 
@@ -110,7 +99,7 @@ end
 toc
 
 %% Displays
-errtest = norm(u-full(f.tensor))/norm(u);
+errtest = norm(u(xi)-f(xi))/norm(u(xi));
 fprintf('Ranks: [%s  ]\n',sprintf('  %i',f.tensor.ranks));
 fprintf('Loo risk = %d\n',output.error);
 fprintf('Test risk = %d\n',output.testError);

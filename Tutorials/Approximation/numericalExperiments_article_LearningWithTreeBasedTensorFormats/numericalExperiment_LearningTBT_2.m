@@ -1,5 +1,6 @@
-% Third numerical experiment of the article
-% Grelier, E., Nouy, A., & Chevreuil, M. (2018). Learning with tree-based tensor formats. arXiv preprint arXiv:1811.04455.
+% Second numerical experiment of the article
+% Grelier, E., Nouy, A., & Chevreuil, M. (2018). Learning with tree-based 
+% tensor formats. arXiv preprint arXiv:1811.04455.
 
 % Copyright (c) 2020, Anthony Nouy, Erwan Grelier, Loic Giraldi
 % 
@@ -24,18 +25,19 @@ clearvars; clc; close all
 d = 10;
 m = 3;
 X = RandomVector(UniformRandomVariable(),d);
-fun = UserDefinedFunction(@(x) log(1+g(x,d,m).^2),d);
+fun = UserDefinedFunction(@(x) g(x,d,m),d);
 fun.evaluationAtMultiplePoints = true;
 
 %% Approximation basis
-pdegree = 10;
+pdegree = 5;
 h = cellfun(@(x) PolynomialFunctionalBasis(orthonormalPolynomials(x),0:pdegree),X.randomVariables,'UniformOutput',false);
 H = FunctionalBases(h);
 
 %% Training and test samples
 n = 1e3;
+noiseStd = 0;
 x = random(X,n);
-y = fun(x);
+y = fun(x) + noiseStd*randn(n,1);
 xTest = random(X,10000);
 yTest = fun(xTest);
 
@@ -69,7 +71,7 @@ s.testError = true;
 s.testErrorData = {xTest,yTest};
 
 s.rankAdaptation = true;
-s.rankAdaptationOptions.maxIterations = 50;
+s.rankAdaptationOptions.maxIterations = 30;
 
 s.treeAdaptation = true;
 s.treeAdaptationOptions.maxIterations = 1e2;
