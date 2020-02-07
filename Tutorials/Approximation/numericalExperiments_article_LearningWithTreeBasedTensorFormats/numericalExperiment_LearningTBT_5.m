@@ -26,7 +26,7 @@ d = 8;
 tree = DimensionTree.balanced(d);
 X = RandomVector(UniformRandomVariable(),d);
 fun = @(x1,x2) (2 + x1.*x2).^(2)/9;
-fun = PoggioModelFunction(tree,fun,X);
+fun = CompositionalModelFunction(tree,fun,X);
 fun = UserDefinedFunction(fun,d);
 fun.evaluationAtMultiplePoints = true;
 

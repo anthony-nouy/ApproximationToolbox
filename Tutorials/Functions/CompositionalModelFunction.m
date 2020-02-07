@@ -1,4 +1,4 @@
-% Class PoggioModelFunction: Poggio function
+% Class CompositionalModelFunction
 
 % Copyright (c) 2020, Anthony Nouy, Erwan Grelier, Loic Giraldi
 % 
@@ -17,7 +17,7 @@
 % You should have received a copy of the GNU Lesser General Public License
 % along with ApproximationToolbox.  If not, see <https://www.gnu.org/licenses/>.
 
-classdef PoggioModelFunction < Function
+classdef CompositionalModelFunction < Function
    
     properties
         % TREE - DimensionTree
@@ -28,10 +28,10 @@ classdef PoggioModelFunction < Function
     
     methods
         
-        function f = PoggioModelFunction(tree,fun,measure)
-            % POGGIOMODELFUNCTION - Constructor for the class PoggioModelFunction
+        function f = CompositionalModelFunction(tree,fun,measure)
+            % COMPOSITIONALMODELFUNCTION - Constructor for the class CompositionalModelFunction
             %
-            % s = POGGIOMODELFUNCTION(tree,fun,measure)
+            % s = COMPOSITIONALMODELFUNCTION(tree,fun,measure)
             % tree: DimensionTree
             % fun: cell of functions
             % measure: Measure
@@ -53,8 +53,9 @@ classdef PoggioModelFunction < Function
             % EVAL - Function evaluation
             %
             % y = EVAL(f,x)
-            % f: PoggioModelFunction
-            % x,y: n-by-1 double
+            % f: CompositionalModelFunction
+            % x: n-by-f.dim double
+            % y: n-by-1 double
             
             z = cell(1,f.tree.nbNodes);
             for nu = 1:f.dim

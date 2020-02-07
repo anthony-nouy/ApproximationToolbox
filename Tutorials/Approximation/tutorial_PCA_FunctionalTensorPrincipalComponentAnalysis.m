@@ -63,7 +63,7 @@ switch choice
         % fun = @(x1,x2) cos(x1 + x2);
         % fun = @(x1,x2)1/9.*(2 + x1.*x2).^(-2);
         fun = @(x1,x2) (1 + x1.^2+x2.^2).^(-1);
-        fun = PoggioModelFunction(tree,fun,X);
+        fun = CompositionalModelFunction(tree,fun,X);
         pdegree = 15;
         bases = cellfun(@(x) PolynomialFunctionalBasis(x,0:pdegree), orthonormalPolynomials(X), 'UniformOutput',false);
         fun.store = true;
