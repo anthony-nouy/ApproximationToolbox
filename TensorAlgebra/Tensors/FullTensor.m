@@ -24,6 +24,7 @@ classdef FullTensor < AlgebraicTensor
         order           % Order of the tensor
         sz              % Size of the tensor
         isOrth = false; % The flag is false if the representation of the tensor is orthogonal (i.e. one mu-matricization is orthogonal)
+        orthDim = []    % If isOrth = true, the dimension mu for which the mu-matricization of the tensor is orthogonal
     end
     
     methods
@@ -227,24 +228,24 @@ classdef FullTensor < AlgebraicTensor
             x.sz = x.sz.*y.sz;
         end
         
-        function x = kronEvalDiag(x,y,xDims,yDims,diagKron)
-            % Computes the diagonal of the kronecker product of two tensors
+        function x = outerProductEvalDiag(x,y,xDims,yDims,diagKron)
+            % Computes the diagonal of the outer product of two tensors
             %
-            % z = kronEvalDiag(x,y,xDims,yDims)
+            % z = outerProductEvalDiag(x,y,xDims,yDims)
             % x, y: FullTensor
             % xDims, yDims: arrays
-            % Returns the diagonal (accordings to dimensions xDims in x and yDims in y) of the kronecker product of x and y
+            % Returns the diagonal (accordings to dimensions xDims in x and yDims in y) of the outer product of x and y
             % Example: for order-3 tensors x and y
-            % z = kronEvalDiag(x,y,2,3) returns an order-5 tensor
+            % z = outerProductEvalDiag(x,y,2,3) returns an order-5 tensor
             % z(i1,k,i3,j1,j2) = x(i1,k,i3)y(j1,j2,k)
             %
-            % z = kronEvalDiag(x,y,xDims,yDims,diagKron)
+            % z = outerProductEvalDiag(x,y,xDims,yDims,diagKron)
             % x, y: FullTensor
             % xDims, yDims: arrays
             % diagKron: logical (false by default)
             % if K = numel(xDims)>1 and diagKron=true, returns a tensor of order x.order+y.order-K
             % Example: for order-3 tensors x and y
-            % z = kronEvalDiag(x,y,[1 2],[2 3],true) returns an order-4 tensor
+            % z = outerProductEvalDiag(x,y,[1 2],[2 3],true) returns an order-4 tensor
             % z(k,l,i3,j1) = x(k,l,i3)y(j1,k,l)
             
             if nargin==2
@@ -546,7 +547,7 @@ classdef FullTensor < AlgebraicTensor
                 [~,yDims]=ismember(yDims,yDimsNew);
                 yDiagDims = yDiagDims(1);
             end
-            z = kronEvalDiag(x,y,[xDims,xDiagDims],[yDims,yDiagDims],true);
+            z = outerProductEvalDiag(x,y,[xDims,xDiagDims],[yDims,yDiagDims],true);
             z = sum(z,xDims);
             z = squeeze(z,xDims);
         end
@@ -571,6 +572,7 @@ classdef FullTensor < AlgebraicTensor
                 x = reshape(FullTensor(xd),sz0);
                 x = ipermute(x,dims);
                 x.isOrth = true;
+                x.orthDim = mu;
                 varargout{1} = r;
             end
         end

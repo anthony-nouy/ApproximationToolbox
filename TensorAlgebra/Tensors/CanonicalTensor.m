@@ -129,9 +129,9 @@ classdef CanonicalTensor < TuckerLikeTensor
                     fmu = fmu.*f.space.spaces{nu};
                 end
                 if nargin == 3
-                    g = kronEvalDiag(FullTensor(fmu),FullTensor(H{mu}),1,1);
+                    g = outerProductEvalDiag(FullTensor(fmu),FullTensor(H{mu}),1,1);
                 else
-                    g = kronEvalDiag(FullTensor(fmu),FullTensor(eye(f.sz(mu))),[],[],true);
+                    g = outerProductEvalDiag(FullTensor(fmu),FullTensor(eye(f.sz(mu))),[],[],true);
                 end
                 ind = [mu ; 3];
             end

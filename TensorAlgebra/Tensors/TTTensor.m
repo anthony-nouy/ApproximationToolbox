@@ -530,11 +530,11 @@ classdef TTTensor < AlgebraicTensor
             end
             
             if nargin == 3
-                g = kronEvalDiag(alpha,FullTensor(H{mu}),1,1);
+                g = outerProductEvalDiag(alpha,FullTensor(H{mu}),1,1);
             else
-                g = kronEvalDiag(alpha,FullTensor(eye(f.sz(mu))),[],[],true);
+                g = outerProductEvalDiag(alpha,FullTensor(eye(f.sz(mu))),[],[],true);
             end
-            g = kronEvalDiag(g,beta,1,1);
+            g = outerProductEvalDiag(g,beta,1,1);
         end
         
         
