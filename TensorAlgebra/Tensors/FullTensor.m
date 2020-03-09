@@ -291,8 +291,17 @@ classdef FullTensor < AlgebraicTensor
                 
                 K = length(rx);
                 
-                x = permute(x.data,[rx,rnx]);
-                y = permute(y.data,[ry,dy+1:dx+dy-K,rny]);
+                
+                if dx>1
+                    x = permute(x.data,[rx,rnx]);
+                else
+                    x = x.data;
+                end
+                if dy>1
+                    y = permute(y.data,[ry,dy+1:dx+dy-K,rny]);
+                else
+                    y = y.data;
+                end
                 if verLessThan('matlab','9.1')
                     x = repmat(x,[ones(1,dx),szy(rny)]);
                     y = repmat(y,[ones(1,K),szx(rnx),ones(1,dy-K)]);

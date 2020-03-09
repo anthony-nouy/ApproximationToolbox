@@ -52,6 +52,7 @@ classdef TreeBasedTensorLearning < TensorLearning
             s.initializationType = 'canonical';
             s.rankAdaptationOptions.rankOneCorrection = true;
             s.rankAdaptationOptions.theta = 0.8;
+            s.rankAdaptationOptions.forceEnrichedNodes = false;
             s.linearModelLearningParameters.basisAdaptationInternalNodes = false;
         end
         
@@ -432,7 +433,7 @@ classdef TreeBasedTensorLearning < TensorLearning
                         break
                     end
                 end
-                if ~isAdmissibleRank(f.tensor,newRank)
+                if ~isAdmissibleRank(f.tensor,newRank) && ~s.rankAdaptationOptions.forceEnrichedNodes
                     newRank = f.tensor.ranks;
                     enrichedNodes = [];
                 end

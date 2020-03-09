@@ -94,7 +94,7 @@ classdef Tensorizer
                     i = [j{:}];
             end
             
-            if nargout==1
+            if nargout~=2
                 y = [i,y];
             end
         end
