@@ -238,8 +238,8 @@ classdef TensorTrainTensorLearning < TensorLearning
                 
                 alpha = evalDiagOnLeft(fH,mu);
                 beta = evalDiagOnRight(fH,mu+1);
-                Hleft = kronEvalDiag(FullTensor(H{mu}),alpha,1,1);
-                Hright = kronEvalDiag(FullTensor(H{mu+1}),beta,1,1);
+                Hleft = outerProductEvalDiag(FullTensor(H{mu}),alpha,1,1);
+                Hright = outerProductEvalDiag(FullTensor(H{mu+1}),beta,1,1);
                 Hleft = Hleft.data(:,:);
                 Hright = Hright.data(:,:);
                 rleft = size(alpha,2);

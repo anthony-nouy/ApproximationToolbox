@@ -674,7 +674,7 @@ classdef TreeBasedTensor < AlgebraicTensor
                         sch = s{chNod(repcha(1))};
                         for k = 2:length(repcha)
                             ch = chNod(repcha(k));
-                            sch = kronEvalDiag(sch,s{ch},1,1);
+                            sch = outerProductEvalDiag(sch,s{ch},1,1);
                         end
                         if ~isempty(repchna)
                             s{nod} = timesTensorEvalDiag(sch,s{nod},2:sch.order,repcha,1,repchna);
@@ -729,7 +729,7 @@ classdef TreeBasedTensor < AlgebraicTensor
                         sch = s{chNod(repcha(1))};
                         for k = 2:length(repcha)
                             ch = chNod(repcha(k));
-                            sch = kronEvalDiag(sch,s{ch},1,1);
+                            sch = outerProductEvalDiag(sch,s{ch},1,1);
                         end
                         if ~isempty(repchna)
                             s{nod} = timesTensorEvalDiag(sch,s{nod},2:sch.order,repcha,1,repchna);
@@ -966,7 +966,7 @@ classdef TreeBasedTensor < AlgebraicTensor
                         if ~isempty(aChNod)
                             saCh = v{aChNod(1)};
                             for k = 2:length(aChNod)
-                                saCh = kronEvalDiag(saCh,v{aChNod(k)},1,1);
+                                saCh = outerProductEvalDiag(saCh,v{aChNod(k)},1,1);
                             end
                             v{nod} = timesTensor(saCh,v{nod},2:saCh.order,t.childNumber(aChNod));
                         end
@@ -974,7 +974,7 @@ classdef TreeBasedTensor < AlgebraicTensor
                         if ~isempty(naChNod)
                             snaCh = FullTensor(H{c.tree.dim2ind == naChNod(1)});
                             for i = 2:length(naChNod)
-                                snaCh = kronEvalDiag(snaCh,FullTensor(H{c.tree.dim2ind == naChNod(i)}),1,1);
+                                snaCh = outerProductEvalDiag(snaCh,FullTensor(H{c.tree.dim2ind == naChNod(i)}),1,1);
                             end
                             
                             if ~isempty(aChNod)
@@ -1145,7 +1145,8 @@ classdef TreeBasedTensor < AlgebraicTensor
                 nodLvl = fastIntersect(nodesWithLevel(t,l),activeNodes);
                 for i = 1:numel(nodLvl)
                     nod = nodLvl(i);
-                    if ~x.tensors{nod}.isOrth
+                    if ~x.tensors{nod}.isOrth || ...
+                            x.tensors{nod}.orthDim ~= x.tensors{nod}.order
                         [x.tensors{nod},R] = orth(x.tensors{nod},x.tensors{nod}.order);
                         pnod = t.parent(nod);
                         x.tensors{pnod} = timesMatrix(x.tensors{pnod},R,t.childNumber(nod));
@@ -1504,7 +1505,7 @@ classdef TreeBasedTensor < AlgebraicTensor
             % SINGULARVALUES - Tree-based singular values of a tensor
             %
             % sv = SINGULARVALUES(x)
-            % Teturns the singular values associated with alpha-matricizations of the tensor, for all alpha in the dimension tree
+            % Returns the singular values associated with alpha-matricizations of the tensor, for all alpha in the dimension tree
             %
             % x: TreeBasedTensor
             % sv: cell array of length x.tree.nbNodes
@@ -1594,7 +1595,7 @@ classdef TreeBasedTensor < AlgebraicTensor
                     if ~isempty(aChNod)
                         vaChNod = v{aChNod(1)};
                         for i = 2:length(aChNod)
-                            vaChNod = kronEvalDiag(vaChNod,v{aChNod(i)},1,1);
+                            vaChNod = outerProductEvalDiag(vaChNod,v{aChNod(i)},1,1);
                         end
                         
                         if ~isempty(naChNod) && nod ~= t.root
@@ -1647,7 +1648,7 @@ classdef TreeBasedTensor < AlgebraicTensor
                     if ~isempty(aChNod)
                         vaChNod = v{aChNod(1)};
                         for i = 2:length(aChNod)
-                            vaChNod = kronEvalDiag(vaChNod,v{aChNod(i)},1,1);
+                            vaChNod = outerProductEvalDiag(vaChNod,v{aChNod(i)},1,1);
                         end
                         if ~isempty(naChNod)
                             w{nod} = timesTensorEvalDiag(vaChNod,f.tensors{pa},2:vaChNod.order,t.childNumber(aChNod),1,t.childNumber(naChNod));
@@ -1692,9 +1693,9 @@ classdef TreeBasedTensor < AlgebraicTensor
             if t.isLeaf(mu)
                 g = FullTensor(ones(w.sz(1),1));
                 if nargin == 3
-                    g = kronEvalDiag(g,FullTensor(H{t.dim2ind == mu}),1,1);
+                    g = outerProductEvalDiag(g,FullTensor(H{t.dim2ind == mu}),1,1);
                 else
-                    g = kronEvalDiag(g,FullTensor(eye(u{mu}.sz(1))),[],[],true);
+                    g = outerProductEvalDiag(g,FullTensor(eye(u{mu}.sz(1))),[],[],true);
                 end
                 g = squeeze(g);
                 ind = [find(t.dim2ind == mu) ; 2];
@@ -1702,21 +1703,21 @@ classdef TreeBasedTensor < AlgebraicTensor
                 if ~isempty(aCh)
                     g = u{aCh(1)};
                     for i = 2:length(aCh)
-                        g = kronEvalDiag(g,u{aCh(i)},1,1);
+                        g = outerProductEvalDiag(g,u{aCh(i)},1,1);
                     end
                 end
                 if ~isempty(naCh)
                     gna = FullTensor(ones(w.sz(1),1));
                     for i = 1:length(naCh)
                         if nargin == 3
-                            gna = kronEvalDiag(gna,FullTensor(H{t.dim2ind == naCh(i)}),1,1);
+                            gna = outerProductEvalDiag(gna,FullTensor(H{t.dim2ind == naCh(i)}),1,1);
                         else
-                            gna = kronEvalDiag(gna,FullTensor(eye(f.tensors{mu}.sz(t.childNumber(naCh(i))))),[],[],true);
+                            gna = outerProductEvalDiag(gna,FullTensor(eye(f.tensors{mu}.sz(t.childNumber(naCh(i))))),[],[],true);
                         end
                     end
                     gna = squeeze(gna);
                     if ~isempty(aCh)
-                        g = kronEvalDiag(g,gna,1,1);
+                        g = outerProductEvalDiag(g,gna,1,1);
                     else
                         g = gna;
                     end
@@ -1724,7 +1725,7 @@ classdef TreeBasedTensor < AlgebraicTensor
                 ind = [find(ismember(t.dim2ind,naCh)) ; length(aCh) + 1 + (1:length(naCh))];
             end
             if mu ~= t.root
-                g = kronEvalDiag(g,w,1,1);
+                g = outerProductEvalDiag(g,w,1,1);
             end
         end
         

@@ -614,7 +614,7 @@ for l = 1:max(t.level)
                     adaptationPathAlpha = ones(v{aChNod(1)}.sz(2),1);
                 end
                 for i = 2:length(aChNod)
-                    Halpha = kronEvalDiag(Halpha,v{aChNod(i)},1,1);
+                    Halpha = outerProductEvalDiag(Halpha,v{aChNod(i)},1,1);
                     if s.linearModelLearning.basisAdaptation
                         adaptationPathAlpha = kron(adaptationPathAlpha, ones(v{aChNod(i)}.sz(2),1));
                     end
@@ -626,13 +626,13 @@ for l = 1:max(t.level)
                     adaptationPathAlphaNa = s.basesAdaptationPath{f.tree.dim2ind == naChNod(1)};
                 end
                 for i = 2:length(naChNod)
-                    Ana = kronEvalDiag(Ana,FullTensor(s.basesEval{t.dim2ind == naChNod(i)}),1,1);
+                    Ana = outerProductEvalDiag(Ana,FullTensor(s.basesEval{t.dim2ind == naChNod(i)}),1,1);
                     if s.linearModelLearning.basisAdaptation
                         adaptationPathAlphaNa = kron(adaptationPathAlphaNa,s.basesAdaptationPath{f.tree.dim2ind == naChNod(i)});
                     end
                 end
                 if ~isempty(aChNod)
-                    Halpha = kronEvalDiag(Halpha,Ana,1,1);
+                    Halpha = outerProductEvalDiag(Halpha,Ana,1,1);
                     if s.linearModelLearning.basisAdaptation
                         adaptationPathAlpha = kron(adaptationPathAlpha,adaptationPathAlphaNa);
                     end
@@ -656,7 +656,7 @@ for l = 1:max(t.level)
                 adaptationPathGamma = ones(v{aChNod(1)}.sz(2),1);
             end
             for i = 2:length(aChNod)
-                Hgamma = kronEvalDiag(Hgamma,v{aChNod(i)},1,1);
+                Hgamma = outerProductEvalDiag(Hgamma,v{aChNod(i)},1,1);
                 if s.linearModelLearning.basisAdaptation
                     adaptationPathGamma = kron(adaptationPathGamma, ones(v{aChNod(i)}.sz(2),1));
                 end
@@ -668,13 +668,13 @@ for l = 1:max(t.level)
                 adaptationPathGammaNa = s.basesAdaptationPath{f.tree.dim2ind == naChNod(1)};
             end
             for i = 2:length(naChNod)
-                Ana = kronEvalDiag(Ana,FullTensor(s.basesEval{t.dim2ind == naChNod(i)}),1,1);
+                Ana = outerProductEvalDiag(Ana,FullTensor(s.basesEval{t.dim2ind == naChNod(i)}),1,1);
                 if s.linearModelLearning.basisAdaptation
                     adaptationPathGammaNa = kron(adaptationPathGammaNa,s.basesAdaptationPath{f.tree.dim2ind == naChNod(i)});
                 end
             end
             if ~isempty(aChNod)
-                Hgamma = kronEvalDiag(Hgamma,Ana,1,1);
+                Hgamma = outerProductEvalDiag(Hgamma,Ana,1,1);
                 if s.linearModelLearning.basisAdaptation
                     adaptationPathGamma = kron(adaptationPathGamma,adaptationPathGammaNa);
                 end
@@ -689,7 +689,7 @@ for l = 1:max(t.level)
         if gamma == t.root
             sz = 1;
         else
-            Hgamma = kronEvalDiag(Hgamma,w{gamma},1,1);
+            Hgamma = outerProductEvalDiag(Hgamma,w{gamma},1,1);
             sz = w{gamma}.sz(2);
         end
         

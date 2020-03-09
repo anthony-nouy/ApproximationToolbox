@@ -46,17 +46,17 @@ fprintf('\nt3 = timesTensor(t1,t2,[1 3],[6 4]) = \n'); disp(t3)
 t4 = timesTensorEvalDiag(t1,t2,[1 3],[6 4],2,5);
 fprintf('\nt4 = timesTensorEvalDiag(t1,t2,[1 3],[6 4],2,5) = \n'); disp(t4)
 
-% Kronecker product of the tensors t1 and t2 with evaluation of the diagonal in the dimensions 3 and 4, respectively
+% Outer product of the tensors t1 and t2 with evaluation of the diagonal in the dimensions 3 and 4, respectively
 % The resulting tensot t5 is such that
 % t5(i1,i2,k,i4,j1,j2,j3,j5,j6) = t1(i1,i2,k,i4)t2(j1,j2,j3,k,j5,j6)
-t5 = kronEvalDiag(t1,t2,3,4);
-fprintf('\nt5 = kronEvalDiag(t1,t2,3,4) = \n'); disp(t5)
+t5 = outerProductEvalDiag(t1,t2,3,4);
+fprintf('\nt5 = outerProductEvalDiag(t1,t2,3,4) = \n'); disp(t5)
 
-% Kronecker product of the tensors t1 and t2 with evaluation of several diagonals, in the dimensions 2 and 3, and 5 and 4 respectively
+% Outer product of the tensors t1 and t2 with evaluation of several diagonals, in the dimensions 2 and 3, and 5 and 4 respectively
 % The resulting tensor t6 is such that
 % t6(i1,k,l,i4,j1,j2,j3,j6) = t1(i1,k,l,i4)t2(j1,j2,j3,l,k,j6)
-t6 = kronEvalDiag(t1,t2,[2,3],[5 4],true);
-fprintf('\nt6 = kronEvalDiag(t1,t2,[2,3],[5 4],true) = \n'); disp(t6)
+t6 = outerProductEvalDiag(t1,t2,[2,3],[5 4],true);
+fprintf('\nt6 = outerProductEvalDiag(t1,t2,[2,3],[5 4],true) = \n'); disp(t6)
 
 %% Orthogonalization of a FullTensor
 
