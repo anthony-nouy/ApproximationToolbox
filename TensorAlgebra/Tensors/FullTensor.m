@@ -23,7 +23,7 @@ classdef FullTensor < AlgebraicTensor
         data            % Order-d array containing the entries of the tensor
         order           % Order of the tensor
         sz              % Size of the tensor
-        isOrth = false; % The flag is false if the representation of the tensor is orthogonal (i.e. one mu-matricization is orthogonal)
+        isOrth = false; % The flag is true if the representation of the tensor is orthogonal (i.e. one mu-matricization is orthogonal)
         orthDim = []    % If isOrth = true, the dimension mu for which the mu-matricization of the tensor is orthogonal
     end
     
@@ -139,6 +139,13 @@ classdef FullTensor < AlgebraicTensor
             x.data = x.data.*y.data;
         end
         
+        function x = power(x,y)
+            if ~isa(y, 'double')
+                error('The power must be a double.')
+            end
+            x.data = x.data.^y;
+        end
+        
         function z = dot(x,y)
             z = x.data(:)'*y.data(:);
         end
@@ -216,16 +223,17 @@ classdef FullTensor < AlgebraicTensor
             end
         end
         
-        function x = kron(x,y)
+        function z = kron(x,y)
             dx = length(x.sz);
             dy = length(y.sz);
             dz = max(dx,dy);
             sx = [x.sz,ones(1,dz-dx)];
             sy = [y.sz,ones(1,dz-dy)];
-            x.data = reshape(permute(reshape(y.data(:)*x.data(:).',[sy sx]),...
+            z = reshape(permute(reshape(y.data(:)*x.data(:).',[sy sx]),...
                 reshape(reshape(1:2*dz,dz,2)',1, ...
                 2*dz)),(sx.*sy));
-            x.sz = x.sz.*y.sz;
+%             x.sz = x.sz.*y.sz;
+            z = FullTensor(z);
         end
         
         function x = outerProductEvalDiag(x,y,xDims,yDims,diagKron)
@@ -539,7 +547,7 @@ classdef FullTensor < AlgebraicTensor
             % timesTensorEvalDiag(x,y,2,3,3,1) returns an order-4 tensor
             % z(i1,k,i4,j2,j4) = sum_{l} x(i1,l,k,i4) y(k,j2,l,j4)
             %
-            % timesTensorEvalDiag(x,y,[2,4],[3,4],3,1) returns an order-4 tensor
+            % timesTensorEvalDiag(x,y,[2,4],[3,4],3,1) returns an order-3 tensor
             % z(i1,k,j2) = sum_{l1,l2} x(i1,l1,k,l2) y(k,j2,l1,l2)
             
             if numel(xDiagDims)>1

@@ -183,11 +183,6 @@ classdef TensorLearning < Learning
                     f = setParameter(s,f,alpha,C);
                 end
                 
-%                 if k ~= s.alternatingMinimizationParameters.maxIterations && ...
-%                         isa(s,'TreeBasedTensorWithMappedVariablesLearning')
-%                     [s,f] = optimizeChangeOfVariables(s,f,y);
-%                 end
-                
                 stagnation = stagnationCriterion(s,f,f0);
                 output.stagnationIterations(k)=stagnation;
                 
@@ -293,30 +288,16 @@ classdef TensorLearning < Learning
                     end
                 end
                 
-%                 if isa(slocal,'TreeBasedTensorWithMappedVariablesLearning')
-%                     s.bases = f.bases;
-%                     s.basesEval = s.bases.eval(x);
-%                 end
-                
                 if s.testError
                     testErrors(i) = s.lossFunction.testError(FunctionalTensor(f.tensor,s.bases),s.testErrorData);
                 end
                 
-                if s.rankAdaptationOptions.earlyStopping && ...
-                        i > 1 && ((s.testError && (isnan(testErrors(i)) || s.rankAdaptationOptions.earlyStoppingFactor*min(testErrors(1:i-1)) < testErrors(i))) || ...
-                        (isfield(outputLocal,'error') && ( isnan(errors(i)) || s.rankAdaptationOptions.earlyStoppingFactor*min(errors(1:i-1)) < errors(i))))
-                    fprintf('Early stopping')
-                    if isfield(outputLocal,'error')
-                        fprintf(', error = %d',errors(i))
+                if s.storeIterates
+                    if isa(s.bases,'FunctionalBases')
+                        iterates{i} = FunctionalTensor(f.tensor,s.bases);
+                    else
+                        iterates{i} = f;
                     end
-                    if s.testError
-                        fprintf(', test error = %d',testErrors(i))
-                    end
-                    fprintf('\n\n')
-                    i = i-1;
-                    f = fOld;
-                    flag = -1;
-                    break
                 end
                 
                 if s.display
@@ -340,13 +321,42 @@ classdef TensorLearning < Learning
                     end
                 end
                 
-                ok = false;
+                if i == s.rankAdaptationOptions.maxIterations
+                    break
+                end
+                
+                if (s.testError && isfield(outputLocal,'testError') && ...
+                        testErrors(i) < s.tolerance.onError) || ...
+                        (isfield(outputLocal,'error') && ...
+                        errors(i) < s.tolerance.onError)
+                    flag = 1;
+                    break
+                end
+                
+                if s.rankAdaptationOptions.earlyStopping && ...
+                        i > 1 && ((s.testError && (isnan(testErrors(i)) || s.rankAdaptationOptions.earlyStoppingFactor*min(testErrors(1:i-1)) < testErrors(i))) || ...
+                        (isfield(outputLocal,'error') && ( isnan(errors(i)) || s.rankAdaptationOptions.earlyStoppingFactor*min(errors(1:i-1)) < errors(i))))
+                    fprintf('Early stopping')
+                    if isfield(outputLocal,'error')
+                        fprintf(', error = %d',errors(i))
+                    end
+                    if s.testError
+                        fprintf(', test error = %d',testErrors(i))
+                    end
+                    fprintf('\n\n')
+                    i = i-1;
+                    f = fOld;
+                    flag = -1;
+                    break
+                end
+                
+                adaptedTree = false;
                 if slocal.treeAdaptation && i>1 && ...
                         (~s.treeAdaptationOptions.forceRankAdaptation || ~treeAdapt)
                     Cold = storage(f.tensor);
                     [s,f,output] = adaptTree(s,f,errors(i),[],output,i);
-                    ok = storage(f.tensor) < Cold;
-                    if ok
+                    adaptedTree = output.adaptedTree;
+                    if adaptedTree
                         if s.display
                             fprintf('\t\tStorage complexity before permutation = %i\n',Cold);
                             fprintf('\t\tStorage complexity after permutation  = %i\n',storage(f.tensor));
@@ -363,27 +373,7 @@ classdef TensorLearning < Learning
                     end
                 end
                 
-                if s.storeIterates
-                    if isa(s.bases,'FunctionalBases')
-                        iterates{i} = FunctionalTensor(f.tensor,s.bases);
-                    else
-                        iterates{i} = f;
-                    end
-                end
-                
-                if i == s.rankAdaptationOptions.maxIterations
-                    break
-                end
-                
-                if (s.testError && isfield(outputLocal,'testError') && ...
-                        testErrors(i) < s.tolerance.onError) || ...
-                        (isfield(outputLocal,'error') && ...
-                        errors(i) < s.tolerance.onError)
-                    flag = 1;
-                    break
-                end
-                
-                if ~s.treeAdaptation || ~ok
+                if ~s.treeAdaptation || ~adaptedTree
                     if i>1 && ~treeAdapt && stagnationCriterion(s,FunctionalTensor(f.tensor,s.basesEval),FunctionalTensor(fOld.tensor,s.basesEval)) < s.tolerance.onStagnation
                         break
                     end
@@ -415,6 +405,9 @@ classdef TensorLearning < Learning
             if s.testError
                 output.testErrorIterations = testErrors(1:i);
                 output.testError = testErrors(i);
+            end
+            if isfield(output, 'adaptedTree')
+                output = rmfield(output, 'adaptedTree');
             end
         end
     end

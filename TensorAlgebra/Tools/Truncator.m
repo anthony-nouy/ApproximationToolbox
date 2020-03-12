@@ -172,7 +172,6 @@ classdef Truncator
             else
                 localTolerance = t.tolerance / sqrt(d);
                 if isa(x,'FullTensor')
-                    d = x.order;
                     sz = x.sz;
                     A = cell(d,1);
                     r = zeros(1,d);

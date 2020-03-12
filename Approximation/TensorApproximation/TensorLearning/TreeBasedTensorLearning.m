@@ -52,7 +52,6 @@ classdef TreeBasedTensorLearning < TensorLearning
             s.initializationType = 'canonical';
             s.rankAdaptationOptions.rankOneCorrection = true;
             s.rankAdaptationOptions.theta = 0.8;
-            s.rankAdaptationOptions.forceEnrichedNodes = false;
             s.linearModelLearningParameters.basisAdaptationInternalNodes = false;
         end
         
@@ -396,12 +395,25 @@ classdef TreeBasedTensorLearning < TensorLearning
             r = f.tensor.ranks;
             desc = setdiff(1:t.nbNodes,find(t.isLeaf));
             cannotBeIncreased = false(1,t.nbNodes);
+            cannotBeIncreased(t.root) = true;
             cannotBeIncreased(t.isLeaf) = isnan(svmin(t.isLeaf));
-            for lvl = max(t.level)-1:-1:0
+            for lvl = max(t.level)-1:-1:1
                 nodLvl = intersect(nodesWithLevel(t,lvl),desc);
                 for nod = nodLvl
                     ch = nonzeros(t.children(:,nod));
                     if all(cannotBeIncreased(ch)) && r(nod) == prod(r(ch))
+                        cannotBeIncreased(nod) = true;
+                    end
+                end
+            end
+            cannotBeIncreasedNodes = t.nodesIndices(cannotBeIncreased);
+            for lvl = 1:max(t.level)-1
+                nodLvl = setdiff(nodesWithLevel(t,lvl), cannotBeIncreasedNodes);
+                for nod = nodLvl
+                    pa = t.parent(nod);
+                    ind = [pa, setdiff(nonzeros(t.children(:,pa)), nod)];
+                    if all(cannotBeIncreased(ind)) && ...
+                            r(nod) == prod(r(ind))
                         cannotBeIncreased(nod) = true;
                     end
                 end
@@ -433,7 +445,7 @@ classdef TreeBasedTensorLearning < TensorLearning
                         break
                     end
                 end
-                if ~isAdmissibleRank(f.tensor,newRank) && ~s.rankAdaptationOptions.forceEnrichedNodes
+                if ~isAdmissibleRank(f.tensor,newRank)
                     newRank = f.tensor.ranks;
                     enrichedNodes = [];
                 end
@@ -453,7 +465,7 @@ classdef TreeBasedTensorLearning < TensorLearning
         end
         
         function adaptationDisplay(s,f,enrichedNodes)
-            fprintf('\tEnriched nodes: [ %s ]\n\tRanks = [ %s ]\n',num2str(enrichedNodes(:).'),num2str(f.tensor.ranks));
+            fprintf('\tEnriched nodes: [ %s ]\n\tRanks = [ %s]\n',num2str(enrichedNodes(:).'),num2str(f.tensor.ranks));
         end
         
         function [s,f,output] = adaptTree(s,f,looError,testError,output,varargin)
@@ -488,9 +500,12 @@ classdef TreeBasedTensorLearning < TensorLearning
                 f.tensor = fPerm;
                 s.tree = f.tensor.tree;
                 s.isActiveNode = f.tensor.isActiveNode;
+                output.adaptedTree = true;
                 if s.display
                     fprintf('\tTree adaptation:\n\t\tRanks after permutation = [ %s ]\n',num2str(f.tensor.ranks))
                 end
+            else
+                output.adaptedTree = false;
             end
         end
         
@@ -508,8 +523,7 @@ classdef TreeBasedTensorLearning < TensorLearning
             
             tree = DimensionTree.linear(d);
             isActiveNode = true(1,tree.nbNodes);
-            isActiveNode(tree.isLeaf) = false;
-            isActiveNode(tree.nbNodes-1) = true;
+            isActiveNode(tree.dim2ind(2:end)) = false;
             s = TreeBasedTensorLearning(tree,isActiveNode,varargin{:});
         end
         

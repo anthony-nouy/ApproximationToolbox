@@ -890,7 +890,7 @@ classdef TreeBasedTensor < AlgebraicTensor
         end
         
         function [x] = timesDiagMatrix(x,M,order)
-            if any(x.isActiveNode(x.isLeaf))
+            if any(x.isActiveNode(x.tree.isLeaf))
                 error('Method not implemented.')
             end
             
@@ -1475,8 +1475,7 @@ classdef TreeBasedTensor < AlgebraicTensor
             % x: TreeBasedTensor
             % a: 1-by-length(ACTIVEDIMS(x)) integer
             
-            a =ismember(x.dim2ind,activeNodes(x));
-            a = x.dim2ind(a);
+            a = find(ismember(x.tree.dim2ind, activeNodes(x)));
         end
         
         function a = nonActiveDims(x)
@@ -1486,7 +1485,7 @@ classdef TreeBasedTensor < AlgebraicTensor
             % x: TreeBasedTensor
             % a: 1-by-length(NONACTIVEDIMS(x)) integer
             
-            a = setdiff(1:x.order,x.activeDims(x));
+            a = setdiff(1:x.order, activeDims(x));
         end
         
         function a = isActiveDim(x,mu)
@@ -1498,7 +1497,7 @@ classdef TreeBasedTensor < AlgebraicTensor
             % mu: 1-by-1 integer
             % a: 1-by-1 logical
             
-            a = ismember(x.dim2ind(mu),activeNodes(x));
+            a = ismember(x.tree.dim2ind(mu), activeNodes(x));
         end
         
         function sv = singularValues(x)
@@ -1621,7 +1620,7 @@ classdef TreeBasedTensor < AlgebraicTensor
             % mu: 1-by-1 integer
             % w: 1-by-f.tree.nbNodes cell or 1-by-1 cell if mu is provided
             
-            if nargin == 1
+            if nargin == 1 || isempty(v)
                 v = evalDiagBelow(f);
             end
             
@@ -1637,7 +1636,7 @@ classdef TreeBasedTensor < AlgebraicTensor
             end
             
             for l = 1:max(t.level)
-                nodLvl = fastIntersect(fastIntersect(nodesWithLevel(t,l),1:t.nbNodes),f.activeNodes);
+                nodLvl = fastIntersect(nodesWithLevel(t,l),f.activeNodes);
                 nodLvl = fastIntersect(nodLvl,includeList);
                 for nod = nodLvl
                     pa = t.parent(nod);
