@@ -411,7 +411,8 @@ classdef TreeBasedTensorLearning < TensorLearning
                 nodLvl = setdiff(nodesWithLevel(t,lvl), cannotBeIncreasedNodes);
                 for nod = nodLvl
                     pa = t.parent(nod);
-                    ind = [pa, setdiff(nonzeros(t.children(:,pa)), nod)];
+                    ind = setdiff(nonzeros(t.children(:,pa)), nod);
+                    ind = [pa, ind(:).'];
                     if all(cannotBeIncreased(ind)) && ...
                             r(nod) == prod(r(ind))
                         cannotBeIncreased(nod) = true;

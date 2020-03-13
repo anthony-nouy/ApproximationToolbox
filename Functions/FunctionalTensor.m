@@ -341,6 +341,11 @@ classdef FunctionalTensor < Function
             
             dims = 1:f.tensor.order;
             if isa(f.tensor,'TreeBasedTensor')
+                % Compute fH, the TimesMatrixEvalDiag of f with H in all  
+                % the dimensions except the ones associated with mu (if mu 
+                % is a leaf node) or with the inactive children of mu (if
+                % mu is an internal node). The tensor fH is used to compute 
+                % the gradient of f with respect to f.tensor.tensors{mu}.
                 t = f.tensor.tree;
                 if t.isLeaf(mu)
                     dims = 1:f.tensor.order;
@@ -351,7 +356,57 @@ classdef FunctionalTensor < Function
                     dims = 1:f.tensor.order;
                     dims(ismember(t.dim2ind,ind)) = [];
                 end
-                fH = timesMatrix(f.tensor,H(dims),dims);
+                remainingDims = 1:f.tensor.order;
+                tensors = f.tensor.tensors;
+                dim2ind = t.dim2ind;
+
+                for leaf = intersect(t.dim2ind(dims), f.tensor.activeNodes)
+                    dims = setdiff(dims, find(t.dim2ind == leaf));
+                    tensors{leaf} = timesMatrix(f.tensor.tensors{leaf}, ...
+                            H(t.dim2ind == leaf), 1);
+                end
+
+                for pa = unique(t.parent(setdiff(t.dim2ind(dims), ...
+                        f.tensor.activeNodes)))
+                    ind = intersect(t.dim2ind(dims), t.children(:, pa));
+                    ind = setdiff(ind, f.tensor.activeNodes);
+                    [~, dimsLoc] = ismember(ind, t.dim2ind);
+                    if length(ind) > 1
+                        tensors{pa} = timesMatrixEvalDiag(f.tensor.tensors{pa}, ...
+                            H(dimsLoc), t.childNumber(ind));
+                        remainingDims = setdiff(remainingDims, dimsLoc(2:end));
+                        if all(~f.tensor.isActiveNode(nonzeros(t.children(:, pa))))
+                            dim2ind(dimsLoc(1)) = t.parent(t.dim2ind(dimsLoc(1)));
+                        else
+                            dims = setdiff(dims, dimsLoc(1));
+                        end
+                        dim2ind(dimsLoc(2:end)) = 0;
+                        perm = [t.childNumber(ind(1)), ...
+                            setdiff(1:tensors{pa}.order, t.childNumber(ind(1)))];
+                        tensors{pa} = ipermute(tensors{pa}, perm);
+                    elseif length(ind) == 1
+                        dims(dims == dimsLoc) = [];
+                        tensors{pa} = timesMatrix(f.tensor.tensors{pa}, ...
+                            H(dimsLoc), t.childNumber(ind));
+                        dim2ind(dimsLoc) = t.dim2ind(dimsLoc);
+                    end
+                end
+
+                keepind = fastSetdiff(1:t.nbNodes, t.dim2ind(dims));
+                a = t.adjacencyMatrix(keepind,keepind);
+                dim2ind = nonzeros(dim2ind).';
+
+                ind = setdiff(1:1:t.nbNodes, keepind);
+                I = zeros(1,t.nbNodes);
+                I(ind) = 1;
+                I = cumsum(I);
+                dim2ind = dim2ind - I(dim2ind);
+                mu = mu - I(mu);
+
+                t = DimensionTree(dim2ind,a);
+                fH = TreeBasedTensor(tensors(keepind),t);
+                fH = removeUniqueChildren(fH);
+                H = H(remainingDims);
             else
                 if mu <= f.tensor.order
                     dims(mu) = [];
@@ -359,10 +414,12 @@ classdef FunctionalTensor < Function
                 fH = timesMatrix(f.tensor,H(dims),dims);
             end
             
-            g = parameterGradientEvalDiag(fH,mu,H);
+            g = parameterGradientEvalDiag(fH, mu, H);
             if isa(f.tensor,'TreeBasedTensor') && ~t.isLeaf(mu)
+                % If the order of the children has been modified in g, 
+                % compute the inverse permutation.
                 ch = nonzeros(t.children(:,mu));
-                [~,I] = sort([ch(f.tensor.isActiveNode(ch)) ; ch(~f.tensor.isActiveNode(ch))]);
+                [~,I] = sort([ch(fH.isActiveNode(ch)) ; ch(~fH.isActiveNode(ch))]);
                 J = []; if mu ~= t.root, J = g.order; end
                 g = permute(g,[1 ; I+1 ; J]);
             end

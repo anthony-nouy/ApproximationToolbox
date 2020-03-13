@@ -166,6 +166,8 @@ classdef TreeBasedTensor < AlgebraicTensor
                     else
                         x.tensors{nod} = cat(x.tensors{nod},y.tensors{nod});
                     end
+                    x.tensors{nod}.isOrth = false;
+                    x.tensors{nod}.orthDim = [];
                 end
                 
             end
@@ -1690,13 +1692,12 @@ classdef TreeBasedTensor < AlgebraicTensor
             aCh = ch(f.isActiveNode(ch));
             naCh = ch(~f.isActiveNode(ch));
             if t.isLeaf(mu)
-                g = FullTensor(ones(w.sz(1),1));
+                g = FullTensor(ones(w.sz(1),1), 1, w.sz(1));
                 if nargin == 3
                     g = outerProductEvalDiag(g,FullTensor(H{t.dim2ind == mu}),1,1);
                 else
                     g = outerProductEvalDiag(g,FullTensor(eye(u{mu}.sz(1))),[],[],true);
                 end
-                g = squeeze(g);
                 ind = [find(t.dim2ind == mu) ; 2];
             else
                 if ~isempty(aCh)
@@ -1705,8 +1706,8 @@ classdef TreeBasedTensor < AlgebraicTensor
                         g = outerProductEvalDiag(g,u{aCh(i)},1,1);
                     end
                 end
-                if ~isempty(naCh)
-                    gna = FullTensor(ones(w.sz(1),1));
+                if ~isempty(naCh)                   
+                    gna = FullTensor(ones(w.sz(1),1), 1, w.sz(1));
                     for i = 1:length(naCh)
                         if nargin == 3
                             gna = outerProductEvalDiag(gna,FullTensor(H{t.dim2ind == naCh(i)}),1,1);
@@ -1714,7 +1715,7 @@ classdef TreeBasedTensor < AlgebraicTensor
                             gna = outerProductEvalDiag(gna,FullTensor(eye(f.tensors{mu}.sz(t.childNumber(naCh(i))))),[],[],true);
                         end
                     end
-                    gna = squeeze(gna);
+                    
                     if ~isempty(aCh)
                         g = outerProductEvalDiag(g,gna,1,1);
                     else
