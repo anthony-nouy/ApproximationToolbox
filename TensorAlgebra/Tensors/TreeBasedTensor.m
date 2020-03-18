@@ -1,31 +1,31 @@
 % Class TreeBasedTensor: algebraic tensors in tree-based tensor format
 %
 % References:
-% - Nouy, A. (2017). Low-rank methods for high-dimensional approximation 
-% and model order reduction. Model reduction and approximation, P. Benner, 
+% - Nouy, A. (2017). Low-rank methods for high-dimensional approximation
+% and model order reduction. Model reduction and approximation, P. Benner,
 % A. Cohen, M. Ohlberger, and K. Willcox, eds., SIAM, Philadelphia, PA, 171-226.
-% - Falcó, A., Hackbusch, W., & Nouy, A. (2018). Tree-based tensor formats. 
+% - Falcó, A., Hackbusch, W., & Nouy, A. (2018). Tree-based tensor formats.
 % SeMA Journal, 1-15
-% - Grelier, E., Nouy, A., & Chevreuil, M. (2018). Learning with tree-based 
+% - Grelier, E., Nouy, A., & Chevreuil, M. (2018). Learning with tree-based
 % tensor formats. arXiv preprint arXiv:1811.04455
-% - Nouy, A. (2019). Higher-order principal component analysis for the 
-% approximation of tensors in tree-based low-rank formats. Numerische 
+% - Nouy, A. (2019). Higher-order principal component analysis for the
+% approximation of tensors in tree-based low-rank formats. Numerische
 % Mathematik, 141(3), 743-789
 
 % Copyright (c) 2020, Anthony Nouy, Erwan Grelier, Loic Giraldi
-% 
+%
 % This file is part of ApproximationToolbox.
-% 
+%
 % ApproximationToolbox is free software: you can redistribute it and/or modify
 % it under the terms of the GNU Lesser General Public License as published by
 % the Free Software Foundation, either version 3 of the License, or
 % (at your option) any later version.
-% 
+%
 % ApproximationToolbox is distributed in the hope that it will be useful,
 % but WITHOUT ANY WARRANTY; without even the implied warranty of
 % MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 % GNU Lesser General Public License for more details.
-% 
+%
 % You should have received a copy of the GNU Lesser General Public License
 % along with ApproximationToolbox.  If not, see <https://www.gnu.org/licenses/>.
 
@@ -140,14 +140,9 @@ classdef TreeBasedTensor < AlgebraicTensor
             n = sum(cellfun(@nnz,x.tensors));
         end
         
-        function n = statisticalDimension(x)
-            % STATISTICALDIMENSION - Bound of the metric entropy
-            %
-            % n = STATISTICALDIMENSION(x)
-            % x: TreeBasedTensor
-            % n: 1-by-1 double
-            
-            n = storage(x) - sum(x.ranks.^2) + 1;
+        function n = sparseLeavesStorage(x)
+            n = sum(cellfun(@numel,x.tensors(x.tree.internalNodes)))+...
+                sum(cellfun(@nnz,x.tensors(x.tree.dim2ind)));
         end
         
         function x = plus(x,y)
@@ -1555,12 +1550,99 @@ classdef TreeBasedTensor < AlgebraicTensor
                 nodesLabels = cellfun(nodesLabels,x.tensors,'uniformoutput',false);
             end
             
-            plotNodes(x.tree,x.activeNodes(),'or','markerfacecolor','r','markersize',7)
+            plotNodes(x.tree,x.activeNodes(),'ok','markerfacecolor','k','markersize',7)
             hold on
-            plotNodes(x.tree,x.nonActiveNodes(),'or','markerfacecolor','w','markersize',7)
+            plotNodes(x.tree,x.nonActiveNodes(),'ok','markerfacecolor','w','markersize',7)
             plotEdges(x.tree)
             plotLabelsAtNodes(x.tree,nodesLabels)
             hold off
+        end
+        
+        function NN = neuralNetwork(x)
+            nbNeurons = 0;
+            neuronsGroup = [];
+            neuronsIndexInGroup = [];
+            neuronsLayer = [];
+            neuronsParentGroup = [];
+            depth = max(x.tree.level)+2;
+            widths = zeros(1,depth+2);
+            widths(1) = sum(x.sz);
+            for k=1:x.order
+                nalpha = x.sz(k);
+                neuronsGroup = [neuronsGroup , -x.tree.dim2ind(k)*ones(1,nalpha)];
+                neuronsLayer = [neuronsLayer , ones(1,nalpha)];
+                nbNeurons = nbNeurons + nalpha;
+                neuronsParentGroup = [neuronsParentGroup, x.tree.dim2ind(k)*ones(1,nalpha)];
+                neuronsIndexInGroup = [neuronsIndexInGroup , 1:nalpha];
+            end
+            for alpha=1:x.tree.nbNodes
+                l = length(unique(x.tree.level(x.tree.descendants(alpha))))+2;
+                ralpha = x.ranks(alpha);
+                widths(l) = widths(l)+ralpha;
+                neuronsGroup = [neuronsGroup , alpha*ones(1,ralpha)];
+                neuronsLayer = [neuronsLayer , (l)*ones(1,ralpha)];
+                nbNeurons = nbNeurons + ralpha;
+                neuronsParentGroup = [neuronsParentGroup , x.tree.parent(alpha)*ones(1,ralpha)];
+                neuronsIndexInGroup = [neuronsIndexInGroup , 1:ralpha];
+            end
+            
+            NN.nbNeurons = nbNeurons;
+            NN.widths = widths;
+            NN.depth = depth;
+            NN.tree = x.tree;
+            NN.neuronsGroup = neuronsGroup;
+            NN.neuronsLayer = neuronsLayer;
+            NN.neuronsParentGroup = neuronsParentGroup;
+            NN.neuronsIndexInGroup = neuronsIndexInGroup;
+            NN.tree = x.tree;
+            
+        end
+        
+        function varargout = plotNeuralNetwork(x,varargin)
+            network = neuralNetwork(x);
+            
+            [xnodes,ynodes]=network.tree.treelayout;
+            xn=zeros(network.nbNeurons,1);
+            yn=zeros(network.nbNeurons,1);
+            Hsize = max(xnodes)-min(xnodes);
+            Wsize = max(ynodes)-min(ynodes);
+            h = Hsize/max(network.widths);
+            yshift = Wsize/(network.depth-2)/10;
+            ybottom = min(ynodes) + yshift;
+            for k=1:network.nbNeurons
+                alpha = network.neuronsGroup(k);
+                nalpha = nnz(network.neuronsGroup==alpha);
+                i = network.neuronsIndexInGroup(k);
+                xn(k) = xnodes(abs(network.neuronsGroup(k))) + h*(-nalpha/2 + i);
+                if network.neuronsGroup(k)<0
+                    yn(k) = ybottom;
+                else
+                    yn(k) = ynodes(abs(network.neuronsGroup(k))) + Wsize/(network.depth-2) + yshift;
+                end
+            end
+            
+            hneurons = plot(xn,yn,'ko',varargin{:});
+            hold on
+            edges = zeros(1,2);
+            for k=1:network.nbNeurons
+                p = find(network.neuronsGroup == network.neuronsParentGroup(k));
+                xnp = xn(p);
+                ynp = yn(p);
+                X = [xn(k)*ones(length(p),1),xnp(:)];
+                Y = [yn(k)*ones(length(p),1),ynp(:)];
+                hedges = plot(X',Y','k-',varargin{:});
+                edges = [edges;k*ones(length(p),1),p(:)];
+            end
+            
+            if nargout>0
+                varargout{1}.network = network;
+                varargout{1}.hneurons = hneurons;
+                varargout{1}.hedges = hedges;
+                varargout{1}.xn=xn;
+                varargout{1}.yn=yn;               
+                varargout{1}.edges = edges;
+            end
+            
         end
         
         function v = evalDiagBelow(f,mu)
@@ -1706,7 +1788,7 @@ classdef TreeBasedTensor < AlgebraicTensor
                         g = outerProductEvalDiag(g,u{aCh(i)},1,1);
                     end
                 end
-                if ~isempty(naCh)                   
+                if ~isempty(naCh)
                     gna = FullTensor(ones(w.sz(1),1), 1, w.sz(1));
                     for i = 1:length(naCh)
                         if nargin == 3

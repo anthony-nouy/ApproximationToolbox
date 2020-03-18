@@ -34,6 +34,7 @@ classdef DimensionTree
         level               % level(n) is the level of the nth node
         root                % index of the root node
         isLeaf              % 1-by-nbNodes logical array with entry 1 if the corresponding node is a leaf and 0 otherwise
+        plotOptions = struct('levelAlignment',false)
     end
     
     properties (Hidden)
@@ -57,7 +58,6 @@ classdef DimensionTree
             T.adjacencyMatrix = adjacencyMatrix;
             T = precomputeProperties(T);
             T = updateDimsFromLeaves(T);
-            
         end
         
         function T = permute(T,sigma)
@@ -136,9 +136,23 @@ classdef DimensionTree
         
         function [x,y] =  treelayout(T)
             % Lay out tree
+            %
+            % function [x,y] =  treelayout(T)
+            % T : DimensionTree
+            % If T.plotOptions.levelAlignment is
+            % false, then classical matlab treelayout
+            % true : align nodes  with same level
+            %
             % See also treelayout
-            
+
             [x,y] =  treelayout(T.parent);
+            if T.plotOptions.levelAlignment
+                H = max(y)-min(y);
+                for alpha=1:T.nbNodes
+                    l = T.level(alpha);
+                    y(alpha)=max(y) - l*H/max(T.level);
+                end
+            end
         end
         
         function varargout=plot(T)
@@ -159,7 +173,7 @@ classdef DimensionTree
             % x,y: coordinates of the nodes
             % H: handle
             
-            if nargin==1
+            if nargin==1 || isempty(nodes)
                 nodes = 1:T.nbNodes;
             end
             
@@ -168,7 +182,7 @@ classdef DimensionTree
             y=y';
             
             if nargin<=2
-                varargin={'ro'};
+                varargin={'ko'};
             end
             
             H = plot(x(nodes),y(nodes),varargin{:});
@@ -185,7 +199,7 @@ classdef DimensionTree
         function varargout = plotEdges(T,edges,varargin)
             % Plots the edges of the tree
             %
-            % [xs,ys,xp,yp,H] = plotEdges(T,edges,varargin)
+            % [H,xs,ys,xp,yp] = plotEdges(T,edges,varargin)
             % plot edges with plot properties specified by varargin
             % the number of an edge is the number of the node with maximum level connected to this edge.
             % edges: array of integers (setdiff(1:T.nbNodes,T.root) if edges=[] or nargin==1)
@@ -198,7 +212,7 @@ classdef DimensionTree
             end
             
             if nargin<3
-                varargin = {'r-'};
+                varargin = {'k-'};
             end
             
             [x,y] = treelayout(T);
@@ -208,15 +222,15 @@ classdef DimensionTree
             ys = y(edges);
             H = plot([xs;xp],[ys;yp],varargin{:});
             if nargout>0
-                varargout{1} = xs;
-                varargout{2} = ys;
-                varargout{3} = xp;
-                varargout{4} = yp;
-                varargout{5} = H;
+                varargout{1} = H;
+                varargout{2} = xs;
+                varargout{3} = ys;
+                varargout{4} = xp;
+                varargout{5} = yp;
             end
         end
         
-        function varargout = plotLabelsAtNodes(T,L,nodes)
+        function varargout = plotLabelsAtNodes(T,L,nodes,varargin)
             % Plots labels at nodes
             %
             % H = plotLabelsAtNodes(T,Labels,listOfNodes)
@@ -233,14 +247,27 @@ classdef DimensionTree
                 L = num2cell(L);
             end
             
-            if nargin==2
+            if nargin==2 || isempty(nodes)
                 nodes = 1:T.nbNodes;
             end
             
             [x,y] = treelayout(T);
             x = x';
             y = y';
-            H = text(x(nodes), y(nodes), L(:), 'VerticalAlignment','bottom','HorizontalAlignment','right');
+            shift = (max(y)-min(y))/max(T.level)/8;
+            leafnodes = nodes(T.isLeaf(nodes));
+            H = [];
+            if ~isempty(leafnodes)
+                Ltemp = L(T.isLeaf(nodes));
+                H1 = text(x(leafnodes), y(leafnodes)-shift, Ltemp(:), 'VerticalAlignment','top','HorizontalAlignment','center',varargin{:});
+                H =[H;H1];
+            end
+            intnodes = nodes(~T.isLeaf(nodes));
+            if ~isempty(intnodes)
+                Ltemp = L(~T.isLeaf(nodes));
+                H2 = text(x(intnodes), y(intnodes)+shift, Ltemp(:), 'VerticalAlignment','bottom','HorizontalAlignment','center',varargin{:});
+                H =[H;H2];
+            end
             
             if nargout>0
                 varargout{1}=H;
@@ -268,7 +295,7 @@ classdef DimensionTree
             end
         end
         
-        function varargout = plotDims(T,I)
+        function varargout = plotDims(T,I,varargin)
             % Plots the dimensions associated with the nodes of the tree
             %
             % [N,E,H] = plotDims(T)
@@ -285,7 +312,7 @@ classdef DimensionTree
             
             varargout = cell(1,nargout);
             L = cellfun(@(x) [ '\{' num2str(x) '\}' ],T.dims(I),'uniformoutput',false);
-            [varargout{:}] = plotWithLabelsAtNodes(T,L,I);
+            [varargout{:}] = plotWithLabelsAtNodes(T,L,I,varargin{:});
         end
         
         function varargout = plotDimsNodesIndices(T,varargin)
@@ -551,6 +578,7 @@ classdef DimensionTree
             adjMat = adjMat(1:nbNodes,1:nbNodes);
             tree= DimensionTree(1:d,adjMat);
         end
+        
     end
     
     methods (Hidden)

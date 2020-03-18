@@ -126,7 +126,7 @@ sz = 3*ones(1,d);
 activeNodes = ~T.isLeaf;activeNodes(T.dim2ind(1))=true;
 x = TreeBasedTensor.rand(T,ranks,sz,activeNodes);
 
-figure(1)
+figure(21)
 subplot(1,2,1);plot(x);title('Active nodes')
 subplot(1,2,2);plotDims(T);title('Nodes dimensions')
 
@@ -135,6 +135,30 @@ rperm = randperm(d);
 T = DimensionTree.linear(rperm);
 x = TreeBasedTensor.rand(T,ranks,sz,activeNodes);
 
-figure(2)
+figure(22)
 subplot(1,2,1);plot(x);title('Active nodes')
 subplot(1,2,2);plotDims(T);title('Nodes dimensions')
+
+
+%% Plotting neural network associated with a tree tensor network
+d=8;
+tree = DimensionTree.random(d);
+sz = 10*ones(1,d);
+ranks = randi([3,8],1,tree.nbNodes);
+ranks(tree.root)=1;
+x = TreeBasedTensor.rand(tree,ranks,sz);
+figure(31)
+clf
+subplot(1,2,1)
+[N,E,H] = plotWithLabelsAtNodes(x.tree,x.ranks);
+set(N,'markersize',12,'markerfacecolor','k')
+set(H,'Interpreter','latex','fontsize',24);
+set(E,'linewidth',1)
+title('Dimension tree and ranks at nodes')
+axis off
+
+axis off
+subplot(1,2,2)
+output = x.plotNeuralNetwork('linewidth',.5,'markersize',3,'markerfacecolor','k')   ;
+axis off
+title('Corresponding neural network')

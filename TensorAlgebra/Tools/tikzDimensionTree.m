@@ -1,8 +1,9 @@
 % TIKZDIMENSIONTREE - Generates the tikz code to represent a DimensionTree with labels at its nodes given by nodeLabels
 %
-% h = TIKZDIMENSIONTREE(T,nodeLabels)
+% h = TIKZDIMENSIONTREE(T,nodeLabels,plotDims,plotDimsLeaves)
 % T: DimensionTree
 % nodeLabels: 1-by-T.nbNodes cell
+% plotDims,plotDimsLeaves : boolean (false by default)
 % h: char
 
 % Copyright (c) 2020, Anthony Nouy, Erwan Grelier, Loic Giraldi
@@ -22,32 +23,62 @@
 % You should have received a copy of the GNU Lesser General Public License
 % along with ApproximationToolbox.  If not, see <https://www.gnu.org/licenses/>.
 
-function h = tikzDimensionTree(T,nodeLabels)
-if nargin==1
+function h = tikzDimensionTree(T,nodeLabels,plotDims,plotDimsLeaves)
+% function h = tikzDimensionTree(T,nodeLabels,plotDims,plotDimsLeaves)
+% creating a script for plotting a dimension tree in latex with tikz
+% T : DimensionTree
+% nodeLabels : labels at nodes (array or cell array with length T.nbNodes)
+% plotDims : boolean, true for plotting the dimensions of the nodes (false by default)
+% plotDimsLeaves : boolean, true for plotting the dimensions of the leaf nodes
+%   (false by default, true if plotDims is true)
+
+if nargin==1 || isempty(nodeLabels)
     nodeLabels = cell(1,T.nbNodes);
     nodeLabels(:)={''};
-    for k=1:length(T.dim2ind)
-        nodeLabels{T.dim2ind(k)} = ['$\{' num2str(k) '\}$'];
-    end
-elseif isnumeric(nodeLabels)
+end
+if nargin<3
+    plotDimsLeaves = false;
+    plotDims = false;
+end
+if nargin<4
+    plotDimsLeaves=plotDims;
+end
+if isnumeric(nodeLabels)
     nodeLabels = num2cell(nodeLabels);
     nodeLabels = cellfun(@num2str,nodeLabels,'uniformoutput',false);
 elseif ~isa(nodeLabels,'cell')
     error('wrong argument nodeLabels')
 end
-h = '\begin{tikzpicture}[scale=0.4]  ';
+
+for k=1:T.nbNodes
+    if plotDims || (plotDimsLeaves && T.isLeaf(k))
+        temp = nodeLabels{k};
+        dims = sort(T.dims{k});
+        temp = [temp '$\{'];
+        for l=1:length(dims)
+            if l>1
+                temp = [temp  ','];
+            end
+        temp = [temp  num2str(dims(l))];
+        end
+        nodeLabels{k} = [temp '\}$'];                
+    end
+end
+
+h = '\begin{tikzpicture}[scale=1, level distance = 20mm]  ';
 L = max(T.level);
-sz = zeros(1,L);sz(L)=20;
-for i=L-1:-1:1
-    sz(i) = sz(i+1)+30;
+sz = zeros(1,L);
+sz0 = 150;
+for i=1:L
+    sz(i) = ceil(sz0/T.arity/1.);
+    sz0 = sz(i);
 end
 for i=1:L
     h = [h,'\tikzstyle{level ',num2str(i),  '}=[sibling distance=', num2str(sz(i)),'mm]  '];
 end
-h = [h,'\tikzstyle{root}=[circle,draw,thick,fill=red]  '];
-h = [h,'\tikzstyle{interior}=[circle,draw,solid,thick,fill=red]  '];
-h = [h,'\tikzstyle{leaves}=[circle,draw,solid,thick,fill=red]  '];
-h = [h,'\tikzstyle{active}=[circle,draw,solid,thick,fill=red]  '];
+h = [h,'\tikzstyle{root}=[circle,draw,thick,fill=black,scale=.8]  '];
+h = [h,'\tikzstyle{interior}=[circle,draw,solid,thick,fill=black,scale=.8]  '];
+h = [h,'\tikzstyle{leaves}=[circle,draw,solid,thick,fill=black,scale=.8]  '];
 
 h = add(h,T,T.root,nodeLabels);
 
