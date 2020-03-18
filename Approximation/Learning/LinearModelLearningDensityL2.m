@@ -25,31 +25,75 @@ classdef LinearModelLearningDensityL2 < LinearModelLearning
     
     methods
         function s = LinearModelLearningDensityL2()
+            % LINEARMODELLEARNINGDENSITYL2- Constructor for the class LinearModelLearningDensityL2
+            %
+            % s = LINEARMODELLEARNINGDENSITYL2()
+            % s: LINEARMODELLEARNINGDENSITYL2
+            %
+            % s.basis: FunctionalBasis
+            % s.trainingData: training dataset
+            % s.basisEval: evaluations of the basis on the training dataset
+            % s.testError: logical indicating if a test error is evaluated 
+            % s.testData: test dataset
+            % s.basisEvalTest: evaluations of the basis on the test dataset
+            % s.regularization: regularization (true or false), false by default
+            % s.regularizationOptions: parameters for the regularization
+            % s.modelSelection: model selection (true or false), true by default
+            % s.modelSelectionOptions: parameters for model selection, struct('stopIfErrorIncrease',false) by default
+            % s.errorEstimation: cross-validation error estimation (true or false), false by default
+            % s.errorEstimationType: type of cross-validation procedure, 'leaveout' by default
+            % s.basisAdaptation: basis adaptation (true or false), false by default
+            % s.basisAdaptationPath: regularization path for basis adaptation
+            % s.options: other options, struct() by default
+            
             s@LinearModelLearning(DensityL2LossFunction)
         end
         
-        function [x,output] = solve(s,b,A)
+        function [x,output] = solve(s)
+            % SOLVE - Solution of the L2 minimization problem
+            %
+            % [x,output] = SOLVE(s)
+            % s: LinearModelLearningDensityL2
+            % x: P-by-n double containing the coefficients
+            % output.error: 1-by-n double containing the leave-one-out cross-validation error estimate of the risk
+            
+            s = initialize(s);
+            
             if s.basisAdaptation
-                [x,output] = s.solveBasisAdaptation(b,A);
+                [x,output] = s.solveBasisAdaptation();
             elseif s.regularization
-                [x,output] = s.solveRegularized(b,A);
+                [x,output] = s.solveRegularized();
             else
-                [x,output] = s.solveStandard(b,A);
+                [x,output] = s.solveStandard();
+            end
+            
+            if s.testError
+                fEval = s.basisEvalTest * x;
+                output.testError = s.lossFunction.testError(fEval, s.testData, norm(x)^2);
+            end
+            
+            if ~isempty(s.basis)
+                x = FunctionalBasisArray(x, s.basis);
             end
         end
     end
     
     methods (Hidden)
-        
-        function [a,output] = solveStandard(s,b,A)
+        function [a,output] = solveStandard(s)
             % Hypothesis of orthonormal basis
             if ~s.isBasisOrthonormal
                 error('Only implemented for orthonormal bases.')
             end
             
+            A = s.basisEval;
+            
             a = (mean(A,1).');
-            if ~isempty(b)
+            if iscell(s.trainingData) && length(s.trainingData) == 2 && ...
+                    ~isempty(s.trainingData{2})
+                b = s.trainingData{2};
                 a = a - b;
+            else
+                b = [];
             end
             
             output = [];
@@ -63,10 +107,18 @@ classdef LinearModelLearningDensityL2 < LinearModelLearning
             end
         end
         
-        function [a, output] = solveRegularized(s,b,A)
-            aStandard = solveStandard(s,b,A);
+        function [a, output] = solveRegularized(s)
+            aStandard = solveStandard(s);
             
+            A = s.basisEval;
             N = size(A,1);
+            
+            if iscell(s.trainingData) && length(s.trainingData) == 2 && ...
+                    ~isempty(s.trainingData{2})
+                b = s.trainingData{2};
+            else
+                b = [];
+            end
             
             AsquareSum = sum(A.^2,1);
             
@@ -79,11 +131,12 @@ classdef LinearModelLearningDensityL2 < LinearModelLearning
                 aIncludedCoefficients = aStandard;
                 aIncludedCoefficients(setdiff(1:length(aIncludedCoefficients),includedCoefficients)) = 0;
                 if isempty(b)
-                    errIncludedCoefficients = (-N^2)/(1-N)^2*norm(aIncludedCoefficients)^2 + (2*N-1)/(N*(N-1)^2)*sum(AsquareSum(includedCoefficients));
-                else
+                    b = s.trainingData{2};
                     errIncludedCoefficients = (N^2 - 2*N)/(N-1)^2*norm(aIncludedCoefficients)^2 + 1/(N-1)^2*norm(b(includedCoefficients))^2 - ...
                         2/(N-1)^2*sum(A(:,includedCoefficients)*b(includedCoefficients)) + (2*N-1)/(N*(N-1)^2)*sum(AsquareSum(includedCoefficients)) - ...
                         2/(N-1)*sum(A*aIncludedCoefficients) + 2*aIncludedCoefficients.'*b;
+                else
+                    errIncludedCoefficients = (-N^2)/(1-N)^2*norm(aIncludedCoefficients)^2 + (2*N-1)/(N*(N-1)^2)*sum(AsquareSum(includedCoefficients));
                 end
             end
             
@@ -131,8 +184,8 @@ classdef LinearModelLearningDensityL2 < LinearModelLearning
             output.solutionPath = solpath;
         end
         
-        function [a, output] = solveBasisAdaptation(s,b,A)
-            P = size(A,2);
+        function [a, output] = solveBasisAdaptation(s)
+            P = size(s.basisEval,2);
             if isempty(s.basisAdaptationPath)
                 solpath = true(P,P);
                 solpath = triu(solpath);
@@ -140,12 +193,20 @@ classdef LinearModelLearningDensityL2 < LinearModelLearning
                 solpath = s.basisAdaptationPath;
             end
             
-            [a,output] = s.selectOptimalPath(b,A,solpath);
+            [a,output] = s.selectOptimalPath(solpath);
             output.flag = 2;
         end
         
-        function [a,output] = selectOptimalPath(s,b,A,solpath)
-            [aStandard, output] = s.solveStandard(b,A);
+        function [a,output] = selectOptimalPath(s,solpath)
+            [aStandard, output] = s.solveStandard();
+            
+            A = s.basisEval;
+            if iscell(s.trainingData) && length(s.trainingData) == 2 && ...
+                    ~isempty(s.trainingData{2})
+                b = s.trainingData{2};
+            else
+                b = [];
+            end
             
             AsquareSum = sum(A.^2,1);
             if ~isempty(b)

@@ -34,7 +34,7 @@ h = cellfun(@(x) PolynomialFunctionalBasis(x,0:pdegree),orthonormalPolynomials(X
 H = FunctionalBases(h);
 
 %% Sample generation via rejection sampling
-N = 1e6;
+N = 1e5;
 NTest = 1e5;
 x = [];
 while length(x) < N
@@ -61,8 +61,9 @@ isActiveNode = true(1,tree.nbNodes);
 %% Computation of the approximation
 s = TreeBasedTensorLearning(tree,isActiveNode,DensityL2LossFunction);
 s.bases = H;
+s.trainingData = x;
 
-s.initializationType = 'canonical';
+s.initializationType = 'ones';
 
 s.display = true;
 s.alternatingMinimizationParameters.display = false;
@@ -70,7 +71,7 @@ s.alternatingMinimizationParameters.display = false;
 s.linearModelLearning.basisAdaptation = true;
 
 s.testError = true;
-s.testErrorData = xTest;
+s.testData = xTest;
 
 s.tolerance.onError = -Inf;
 
@@ -88,7 +89,7 @@ s.rankAdaptationOptions.earlyStoppingFactor = 1-1e-3;
 
 tic
 warning off
-[f, output] = s.solve([],x);
+[f, output] = s.solve();
 warning on
 if s.rankAdaptation % Model selection
     [~,i] = min(output.testErrorIterations);

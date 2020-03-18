@@ -34,6 +34,12 @@ classdef Learning
         errorEstimationType = 'leaveout'
         % ERRORESTIMATIONOPTIONS - Structure specifying options for error estimation
         errorEstimationOptions = struct('correction',true)
+        % TRAININGDATA - Cell (in supervised learning) or double (in unsupervised learning) containing the training data
+        trainingData
+        % TESTERROR - Logical indicating if a test error is evaluated
+        testError = false
+        % TESTDATA - Cell (in supervised learning) or double (in unsupervised learning) containing the data to compute the test error
+        testData
     end
     
     methods

@@ -59,6 +59,7 @@ tree = updateDimsFromLeaves(tree);
 %% Computation of the approximation
 s = TreeBasedTensorLearning(tree,isActiveNode,SquareLossFunction);
 s.bases = H;
+s.trainingData = {x,y};
 
 s.tolerance.onStagnation = 1e-15;
 s.tolerance.onError = eps;
@@ -68,7 +69,7 @@ s.initializationType = 'canonical';
 s.linearModelLearning.basisAdaptation = true;
 
 s.testError = true;
-s.testErrorData = {xTest,yTest};
+s.testData = {xTest,yTest};
 
 s.rankAdaptation = true;
 s.rankAdaptationOptions.maxIterations = 30;
@@ -87,7 +88,7 @@ s.rankAdaptationOptions.earlyStoppingFactor = 10;
 
 tic
 warning off
-[f, output] = s.solve(y,x);
+[f, output] = s.solve();
 warning on
 if s.rankAdaptation % Model selection
     [~,i] = min(output.testErrorIterations);

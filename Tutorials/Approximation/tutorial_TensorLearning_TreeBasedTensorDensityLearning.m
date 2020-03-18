@@ -64,8 +64,10 @@ if randomize
 end
 
 s.bases = H;
+s.trainingData = x;
+
 s.rank = 1;
-s.initializationType = 'canonical';
+s.initializationType = 'random';
 
 s.display = true;
 s.alternatingMinimizationParameters.display = false;
@@ -74,7 +76,7 @@ s.linearModelLearning.errorEstimation = true;
 s.linearModelLearning.basisAdaptation = true;
 
 s.testError = true;
-s.testErrorData = xTest;
+s.testData = xTest;
 
 % In density estimation, the error is the risk, which is negative
 s.tolerance.onError = -Inf;
@@ -94,11 +96,16 @@ s.rankAdaptationOptions.earlyStopping = true;
 s.rankAdaptationOptions.earlyStoppingFactor = 0.1;
 
 %% Density estimation
-[~, output] = s.solve([],x);
-[risk,I] = min(output.testErrorIterations);
-f = output.iterates{I}; % Model selection based on the risk estimation
+[f, output] = s.solve();
+% Model selection based on the risk estimation
+if s.rankAdaptation && isfield(output, 'testErrorIterations')
+    [risk,I] = min(output.testErrorIterations);
+    f = output.iterates{I};
+    output.error = output.errorIterations(I);
+    output.testError = output.testErrorIterations(I);
+end
 err = norm(u(xi)-f(xi))/norm(u(xi)); % L2 relative error
 
-fprintf('\nRisk leave-one-out estimation:       %d\n',output.errorIterations(I))
+fprintf('\nRisk leave-one-out estimation:       %d\n',output.error)
 fprintf('Risk estimation using a test sample: %d\n',risk)
 fprintf('L2 relative error estimation:         %d\n',err)

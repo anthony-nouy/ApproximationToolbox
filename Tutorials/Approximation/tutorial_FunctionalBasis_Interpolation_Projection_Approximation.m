@@ -215,9 +215,9 @@ x = random(rv,100);
 y = fun(x);
 
 % Computation of the approximation
-A = h.eval(x);
-f = ls.solve(y,A);
-f = FunctionalBasisArray(f,h);
+ls.basis = h;
+ls.trainingData = {x,y};
+f = ls.solve();
 
 % Displays and error
 fprintf('\nLeast-squares approximation\n')

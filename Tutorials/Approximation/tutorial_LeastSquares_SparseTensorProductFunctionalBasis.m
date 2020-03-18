@@ -53,9 +53,10 @@ switch structuredGrid
         x = random(X,n);
 end
 y = fun(x);
-A = Psi.eval(x);
-f = ls.solve(y,A);
-f = FunctionalBasisArray(f,Psi);
+ls.basis = Psi;
+ls.basisEval = Psi.eval(x);
+ls.trainingData = {x, y};
+f = ls.solve();
 
 fprintf('\n Least-Squares projection\n')
 xtest = random(X,100);
@@ -110,7 +111,7 @@ fprintf('Order = [ %s ]\n',num2str(max(f.basis.indices.array)))
 % disp(f.basis.indices.array)
 fprintf('Nb samples = %d\n',size(y,1))
 fprintf('CV error = %d\n',norm(err))
-fprintf('Elapsed time = %f s\n',time);
+fprintf('Elapsed time = %fs\n',time);
 
 figure(3)
 clf

@@ -40,7 +40,7 @@ classdef CanonicalTensorLearning < TensorLearning
         
         %% Standard solver methods
         
-        function [s,f] = initialize(s,y)
+        function [s,f] = initialize(s)
             if s.treeAdaptation
                 warning('treeAdaptation not defined for CanonicalTensorLearning.')
                 s.treeAdaptation = false;
@@ -65,6 +65,10 @@ classdef CanonicalTensorLearning < TensorLearning
                 case 'initialguess'
                     f = s.initialGuess;
                 case {'mean','meanrandomized'}
+                    if ~iscell(s.trainingData) || ...
+                            (iscell(s.trainingData) && length(s.trainingData) == 1)
+                        error('Initialization type not implemented in unsupervised learning.')
+                    end
                     if isa(s.bases,'FunctionalBases')
                         os = mean(s.bases);
                     else
@@ -79,7 +83,7 @@ classdef CanonicalTensorLearning < TensorLearning
                             os{mu} = os{mu} + 0.01*randn(size(os{mu}));
                         end
                     end
-                    f = CanonicalTensor(TSpaceVectors(os),mean(y));
+                    f = CanonicalTensor(TSpaceVectors(os),mean(s.trainingData{2}));
                 case 'greedy'
                     sini = s;
                     sini.rankAdaptation = false;
@@ -90,7 +94,7 @@ classdef CanonicalTensorLearning < TensorLearning
                     sini.linearModelLearning.errorEstimation = false;
                     sini.testError = false;
                     sini.display = false;
-                    [f,outputini] = solve(sini,y);
+                    [f,outputini] = sini.solve();
                     
                     if s.display && isfield(outputini,'error')
                         fprintf('Greedy initialization: rank = %d, error = %d\n',numel(f.core.data),outputini.error);
@@ -111,7 +115,18 @@ classdef CanonicalTensorLearning < TensorLearning
                 sini.initializationType = 'greedy';
                 sini.display = false;
                 sini.alternatingMinimizationParameters.display = false;
-                fadd = sini.solve(y-fx);
+                
+                if isa(s.lossFunction,'SquareLossFunction')
+                    R = s.trainingData{2} - fx;
+                elseif isa(s.lossFunction,'DensityL2LossFunction')
+                    R = f;
+                end
+                if ~iscell(sini.trainingData)
+                    sini.trainingData = {sini.trainingData};
+                end
+                sini.trainingData{2} = R;
+                
+                fadd = sini.solve();
                 if isa(fadd,'FunctionalTensor')
                     f = f+fadd.tensor;
                 else
@@ -147,7 +162,12 @@ classdef CanonicalTensorLearning < TensorLearning
             end
         end
         
-        function [s,A,b,f] = prepareAlternatingMinimizationSystem(s,f,mu,y)
+        function [s,A,b,f] = prepareAlternatingMinimizationSystem(s,f,mu)
+            if ~isa(s.lossFunction, 'SquareLossFunction')
+                error('Method not implemented for this loss function.')
+            end
+            
+            y = s.trainingData{2};
             N = size(s.basesEval{1},1);
             
             if mu ~= s.numberOfParameters
@@ -267,27 +287,31 @@ classdef CanonicalTensorLearning < TensorLearning
         
         %% Greedy solver
         
-        function [f,output] = solveGreedy(s,y,x)
+        function [f,output] = solveGreedy(s)
             % SOLVEGREEDY - Greedy solver
             %
-            % [f,output] = SOLVEGREEDY(s,y,x)
+            % [f,output] = SOLVEGREEDY(s)
             % s: CanonicalTensorLearning
-            % y: n-by-1 double
-            % x: n-by-s.order double
             % f: FunctionalTensor
             % output: structure
             
-            if nargin>=3 && ~isempty(x)
-                H = eval(s.bases,x);
-                s.basesEval = H;
-            else
-                H = s.basesEval(:);
+            if ~isa(s.lossFunction, 'SquareLossFunction')
+                error('Method not implemented for this loss function.')
             end
-            H = cellfun(@full,H,'uniformoutput',false);
-            
+
+            H = s.basesEval;
             if s.linearModelLearning.basisAdaptation && isempty(s.basesAdaptationPath)
-                s.basesAdaptationPath = adaptationPath(s.bases);
+                if ismethod(s.bases, 'adaptationPath')
+                    s.basesAdaptationPath = adaptationPath(s.bases);
+                else
+                    warning('Cannot perform basis adaptation, disabling it.')
+                    s.linearModelLearning = cellfun(@(x) setfield(x, 'basisAdaptation', false), ...
+                        s.linearModelLearning, 'UniformOutput', false);
+                end
             end
+            
+            y = s.trainingData{2};
+            
             slocal = s;
             slocal.algorithm = 'standard';
             slocal.rank = 1;
@@ -314,11 +338,12 @@ classdef CanonicalTensorLearning < TensorLearning
                     slocal.linearModelLearning.errorEstimation = false;
                 end
             end
+            if ~iscell(slocal.trainingData)
+                slocal.trainingData = {slocal.trainingData};
+            end
             for k = 1:s.rank
-                fx = evalDiag(timesMatrix(f,H));
-                
-                yres = y-fx; % Residual
-                [fadd,outputgreedy] = slocal.solve(yres);
+                slocal.trainingData{2} = y-evalDiag(timesMatrix(f,H)); % Residual
+                [fadd,outputgreedy] = slocal.solve();
                 if isa(fadd,'FunctionalTensor')
                     fadd = fadd.tensor;
                 end
@@ -331,7 +356,10 @@ classdef CanonicalTensorLearning < TensorLearning
                         A = A.*fH.space.spaces{nu};
                     end
                     lslocal.basisAdaptation=false;
-                    [a,outputgreedy] = lslocal.solve(y,A);
+                    lslocal.basis = [];
+                    lslocal.basisEval = A;
+                    lslocal.trainingData = {[], y};
+                    [a,outputgreedy] = lslocal.solve();
                     f.core.data = a(:);
                     
                 end
@@ -357,7 +385,8 @@ classdef CanonicalTensorLearning < TensorLearning
                 
                 f0 = f;
                 if s.testError
-                    output.testError = s.lossFunction.testError(FunctionalTensor(f,s.bases),s.testErrorData);
+                    fEvalTest = FunctionalTensor(f,s.basesEvalTest);
+                    output.testError = s.lossFunction.testError(fEvalTest(),s.testData);
                     output.testErrorIterations(k) = output.testError;
                     if s.display
                         fprintf('Greedy: iteration #%d, test error = %d\n',k,output.testError)

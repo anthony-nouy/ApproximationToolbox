@@ -232,8 +232,8 @@ classdef FullTensor < AlgebraicTensor
             z = reshape(permute(reshape(y.data(:)*x.data(:).',[sy sx]),...
                 reshape(reshape(1:2*dz,dz,2)',1, ...
                 2*dz)),(sx.*sy));
-%             x.sz = x.sz.*y.sz;
-            z = FullTensor(z);
+            sizes = x.sz.*y.sz;
+            z = FullTensor(z,length(sizes),sizes);
         end
         
         function x = outerProductEvalDiag(x,y,xDims,yDims,diagKron)

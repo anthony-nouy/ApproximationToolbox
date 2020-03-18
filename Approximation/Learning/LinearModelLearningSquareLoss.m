@@ -32,6 +32,12 @@ classdef LinearModelLearningSquareLoss < LinearModelLearning
             % weights: N-by-1 double
             % s: LINEARMODELLEARNINGSQUARELOSS
             %
+            % s.basis: FunctionalBasis
+            % s.trainingData: training dataset
+            % s.basisEval: evaluations of the basis on the training dataset
+            % s.testError: logical indicating if a test error is evaluated 
+            % s.testData: test dataset
+            % s.basisEvalTest: evaluations of the basis on the test dataset
             % s.regularization: regularization (true or false), false by default
             % s.regularizationType: type of regularization ('l0', 'l1' or 'l2'), 'l1' by default
             % s.regularizationOptions: parameters for regularization, struct('lambda',0) by default
@@ -54,15 +60,20 @@ classdef LinearModelLearningSquareLoss < LinearModelLearning
             end
         end
         
-        function [x,output] = solve(s,y,A,varargin)
+        function [x,output] = solve(s)
             % SOLVE - Solution (Ordinary or Regularized) of the Least-Squares problem and cross-validation prodecure
             %
-            % [x,output] = SOLVE(s,y,A)
+            % [x,output] = SOLVE(s)
             % s: LinearModelLearningSquareLoss
-            % A: N-by-P double containing the evaluations of basis functions
-            % y: N-by-n double containing the evaluations of response vector
             % x: P-by-n double containing the coefficients
             % output.error: 1-by-n double containing the (corrected) relative (leave-one-out or k-fold) cross-validation error estimates
+            
+            s = initialize(s);
+            
+            A = s.basisEval;
+            y = s.trainingData{2};
+            
+            n = size(y,2);
             
             if ~isempty(s.weights)
                 W = spdiags(sqrt(s.weights),0,size(A,1),size(A,1));
@@ -72,37 +83,68 @@ classdef LinearModelLearningSquareLoss < LinearModelLearning
             
             if ~s.basisAdaptation
                 if ~s.regularization
-                    [x,output] = s.solveOLS(y,A);
+                    [x,output] = s.solveOLS();
                 else
-                    n = size(y,2);
                     if n==1
-                        [x,output] = s.solveRegularizedLS(y,A);
+                        [x,output] = s.solveRegularizedLS();
                     else
                         P = size(A,2);
                         x = zeros(P,n);
                         for i=1:n
-                            [x(:,i),output_tmp] = s.solveRegularizedLS(y(:,i),A);
+                            s.trainingData{2} = y(:,i);
+                            [x(:,i),output_tmp] = s.solveRegularizedLS();
                             output.error(i) = output_tmp.error;
+                            output.outputs{i} = output_tmp;
                         end
                     end
                 end
             else
-                [x,output] = s.solveBasisAdaptation(y,A);
+                if n == 1
+                    [x,output] = s.solveBasisAdaptation();
+                else
+                    P = size(A,2);
+                    x = zeros(P,n);
+                    for i=1:n
+                        s.trainingData{2} = y(:,i);
+                        [x(:,i),output_tmp] = s.solveBasisAdaptation();
+                        output.error(i) = output_tmp.error;
+                        output.outputs{i} = output_tmp;
+                    end
+                end
+            end
+ 
+            if s.testError
+                if n == 1
+                    fEval = s.basisEvalTest * x;
+                    output.testError = s.lossFunction.testError(fEval, s.testData);
+                else
+                    output.testError = zeros(1, n);
+                    fEval = s.basisEvalTest * x;
+                    for i = 1:n
+                        testData = {s.testData{1}, s.testData{2}(:, i)};
+                        output.testError(i) = s.lossFunction.testError(fEval(:,i), testData);
+                    end
+                end
+            end
+            
+            if ~isempty(s.basis)
+                x = FunctionalBasisArray(x, s.basis, n);
             end
         end
     end
     
     methods (Hidden)
-        function [x,output] = solveOLS(s,y,A)
+        function [x,output] = solveOLS(s)
             % SOLVEOLS - Solution of the Ordinary Least-Squares (OLS) problem and cross-validation prodecure
             %
-            % [x,output] = SOLVEOLS(s,y,A)
+            % [x,output] = SOLVEOLS(s)
             % s: LinearModelLearningSquareLoss
-            % A: N-by-P double containing the evaluations of basis functions
-            % y: N-by-n double containing the evaluations of response vector
             % x: P-by-n double containing the coefficients
             % output.error: 1-by-n double containing the (corrected) relative (leave-one-out or k-fold) cross-validation error estimates
             % output.delta: N-by-n double containing the residuals
+            
+            A = s.basisEval;
+            y = s.trainingData{2};
             
             switch s.linearSolver
                 case '\'
@@ -132,17 +174,18 @@ classdef LinearModelLearningSquareLoss < LinearModelLearning
             output.flag = 2;
         end
         
-        function [x,output] = solveRegularizedLS(s,y,A)
+        function [x,output] = solveRegularizedLS(s)
             % SOLVEREGULARIZEDLS - Solution of the Regularized Least-Squares problem and cross-validation prodecure
             %
-            % [x,output] = SOLVEREGULARIZEDLS(s,y,A)
+            % [x,output] = SOLVEREGULARIZEDLS(s)
             % s: LinearModelLearningSquareLoss
-            % A: N-by-P double containing the evaluations of basis functions
-            % y: N-by-1 double containing the evaluations of response
             % x: P-by-1 double containing the coefficients
             % output: struct
             %
             % See also selectOptimalPath
+            
+            A = s.basisEval;
+            y = s.trainingData{2};
             
             P = size(A,2);
             param = s.regularizationOptions;
@@ -173,7 +216,7 @@ classdef LinearModelLearningSquareLoss < LinearModelLearning
                     solpath = solpath(:,rep);
                 end
                 
-                [x,output] = s.selectOptimalPath(y,A,solpath);
+                [x,output] = s.selectOptimalPath(solpath);
             elseif s.modelSelection
                 warning('solpath does not exist or is empty')
             end
@@ -184,18 +227,17 @@ classdef LinearModelLearningSquareLoss < LinearModelLearning
             output.flag = 2;
         end
         
-        function [x,output] = solveBasisAdaptation(s,y,A)
+        function [x,output] = solveBasisAdaptation(s)
             % SOLVEBASISADAPTATION - Solution of the Least-Squares problem with working-set and cross-validation prodecure
             %
-            % [x,output] = SOLVEBASISADAPTATION(s,y,A)
+            % [x,output] = SOLVEBASISADAPTATION(s)
             % s: LinearModelLearningSquareLoss
-            % A: N-by-P double containing the evaluations of basis functions
-            % y: N-by-1 double containing the evaluations of response
             % x: P-by-1 double containing the coefficients
             % output: struct
             %
             % See also selectOptimalPath
             
+            A = s.basisEval;
             P = size(A,2);
             if isempty(s.basisAdaptationPath)
                 solpath = true(P,P);
@@ -204,17 +246,15 @@ classdef LinearModelLearningSquareLoss < LinearModelLearning
                 solpath = s.basisAdaptationPath;
             end
             
-            [x,output] = s.selectOptimalPath(y,A,solpath);
+            [x,output] = s.selectOptimalPath(solpath);
             output.flag = 2;
         end
         
-        function [x,output] = selectOptimalPath(s,y,A,solpath)
+        function [x,output] = selectOptimalPath(s,solpath)
             % SELECTOPTIMALPATH - Selection of a solution using (corrected) relative (leave-one-out or k-fold) cross-validation error
             %
-            % [x,output] = SELECTOPTIMALPATH(s,y,A,solpath)
+            % [x,output] = SELECTOPTIMALPATH(s,solpath)
             % s: LinearModelLearningSquareLoss
-            % A: N-by-P double containing the evaluations of basis functions
-            % y: N-by-1 double containing the evaluations of response
             % solpath: P-by-m double whose columns give m potential solutions with different sparsity patterns
             % x: P-by-1 double containing the optimal solution
             % output.error: 1-by-1 double containing the double containing the (corrected) relative (leave-one-out or k-fold) cross-validation error estimate
@@ -229,9 +269,12 @@ classdef LinearModelLearningSquareLoss < LinearModelLearning
             % output.deltaPath: N-by-(m-1) double containing the regularization path of residuals
             
             if isempty(solpath)
-                [x,output] = s.solveOLS(y,A);
+                [x,output] = s.solveOLS();
                 return
             end
+            
+            A = s.basisEval;
+            y = s.trainingData{2};
             
             pattern = (solpath~=0);
             rep = all(~pattern,1);

@@ -97,6 +97,7 @@ end
 
 %% Computation of the approximation
 s.bases = H;
+s.trainingData = {x,y};
 
 s.tolerance.onStagnation = 1e-6;
 s.tolerance.onError = 1e-10;
@@ -108,7 +109,7 @@ s.linearModelLearning.regularization = false;
 s.linearModelLearning.errorEstimation = true;
 
 s.testError = true;
-s.testErrorData = {xTest,yTest};
+s.testData = {xTest,yTest};
 
 s.rankAdaptation = true;
 s.rankAdaptationOptions.maxIterations = 50;
@@ -127,7 +128,7 @@ s.rankAdaptationOptions.earlyStoppingFactor = 10;
 
 tic
 warning off
-[f, output] = s.solve(y,x);
+[f, output] = s.solve();
 warning on
 if s.rankAdaptation
     [~,i] = min(output.testErrorIterations);

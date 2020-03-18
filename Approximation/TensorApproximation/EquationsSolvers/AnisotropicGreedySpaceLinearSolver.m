@@ -39,7 +39,7 @@ classdef AnisotropicGreedySpaceLinearSolver < LinearSolver
             s = passMatchedArgsToProperties(p,s);
         end
         
-        function  [x,output] = solve(s)
+        function [x,output] = solve(s)
             flag = 1;
             if ~s.minimizeResidual
                 A = s.A;

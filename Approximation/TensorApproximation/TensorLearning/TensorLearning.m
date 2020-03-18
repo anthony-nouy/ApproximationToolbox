@@ -8,7 +8,7 @@
 % it under the terms of the GNU Lesser General Public License as published by
 % the Free Software Foundation, either version 3 of the License, or
 % (at your option) any later version.
-% 
+%
 % ApproximationToolbox is distributed in the hope that it will be useful,
 % but WITHOUT ANY WARRANTY; without even the implied warranty of
 % MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
@@ -24,8 +24,10 @@ classdef TensorLearning < Learning
         order
         % BASES - FunctionalBases
         bases
-        % BASESEVAL - Cell of bases evaluations
+        % BASESEVAL - Cell of bases evaluations on the training sample
         basesEval
+        % BASESEVALTEST - Cell of bases evaluations on the test sample
+        basesEvalTest
         % ALGORITHM - Char specifying the choice of algorithm
         algorithm = 'standard'
         % INITIALIZATIONTYPE - Char specifying the type of initialization
@@ -51,10 +53,6 @@ classdef TensorLearning < Learning
             'maxIterations',30,'stagnation',1e-6,'random',false)
         % BASESADAPTATIONPATH - Cell containing the adaptation paths
         basesAdaptationPath
-        % TESTERROR - Logical enabling or disabling the computation of the test error
-        testError = false
-        % TESTERRORDATA - Cell containing the data required to compute the test error
-        testErrorData
         % STOREITERATES - Logical enabling or disabling the storage of the iterates
         storeIterates = true
         % RANK - 1-by-1 or 1-by-order integer
@@ -66,8 +64,8 @@ classdef TensorLearning < Learning
         numberOfParameters
         % EXPLORATIONSTRATEGY - 1-by-numberOfParameters integer: ordering for the optimization of each parameter
         explorationStrategy
-        % ORTHONORMALITYWARNINGDISPLAY - Logical
-        orthonormalityWarningDisplay = true
+        % WARNINGS - Structure
+        warnings = struct('orthonormalityWarningDisplay', true, 'emptyBasesWarningDisplay', true);
     end
     
     methods
@@ -82,30 +80,81 @@ classdef TensorLearning < Learning
             s.linearModelLearning = linearModel(Learning(s.lossFunction));
         end
         
-        function [f,output] = solve(s,varargin)
+        function [f,output] = solve(s, varargin)
             % SOLVE - Solver for the learning problem with tensor formats
             %
-            % [f,output] = SOLVE(s,y,x)
+            % [f,output] = SOLVE(s)
             % s: TensorLearning
-            % y: n-by-1 double
-            % x: n-by-s.order double
             % f: FunctionalTensor
             % output: structure
             
-            if s.orthonormalityWarningDisplay && (isempty(s.bases) || ...
+            if s.warnings.orthonormalityWarningDisplay && (isempty(s.bases) || ...
                     (~isempty(s.bases) && ~all(cellfun(@(x) x.isOrthonormal,s.bases.bases))))
-                s.orthonormalityWarningDisplay = false;
-                warning('The implemented learning algorithms are designed for orthonormal bases. These algorithms work with non-orthonormal bases, but without some guarantees on their results.')
+                s.warnings.orthonormalityWarningDisplay = false;
+                warning(['The implemented learning algorithms are designed ', ...
+                    'for orthonormal bases. These algorithms work with ', ...
+                    'non-orthonormal bases, but without some guarantees on their results.'])
             end
             
-            % If no FunctionalBases is provided, the test Error is not computed
-            if s.testError && ~isa(s.bases,'FunctionalBases')
+            % If no bases are provided, warn that the returned functions are
+            % evaluated on the training data
+            if isempty(s.bases) && s.warnings.emptyBasesWarningDisplay
+                s.warnings.emptyBasesWarningDisplay = false;
+                warning(['The returned functions are evaluated on the training data. ' ...
+                    'To evaluate them at other points, assign to the FunctionalTensor a ' ...
+                    'nonempty field bases and set the field evaluatedBases to false.'])
+            end
+            
+            % If the test error cannot be computed, it is disabled
+            if s.testError && ~isa(s.bases,'FunctionalBases') && isempty(s.basesEvalTest)
+                warning('The test error cannot be computed.')
                 s.testError = false;
+            end
+            
+            % Assert if basis adaptation can be performed
+            if isempty(s.basesAdaptationPath) && ~ismethod(s.bases, 'adaptationPath')
+                if iscell(s.linearModelLearning) && ...
+                        any(cellfun(@(x) x.basisAdaptation,s.linearModelLearning))
+                    warning('Cannot perform basis adaptation, disabling it.')
+                    s.linearModelLearning = cellfun(@(x) setfield(x, 'basisAdaptation', false), ...
+                        s.linearModelLearning, 'UniformOutput', false);
+                elseif ~iscell(s.linearModelLearning) && ...
+                        s.linearModelLearning.basisAdaptation
+                    warning('Cannot perform basis adaptation, disabling it.')
+                    s.linearModelLearning.basisAdaptation = false;
+                end
+            end
+            
+            % Bases evaluation
+            if ismethod(s.bases, 'eval')
+                if ~isempty(s.trainingData) && isempty(s.basesEval)
+                    if iscell(s.trainingData) && ~isempty(s.trainingData{1})
+                        s.basesEval = s.bases.eval(s.trainingData{1});
+                    elseif ~iscell(s.trainingData) && ~isempty(s.trainingData)
+                        s.basesEval = s.bases.eval(s.trainingData);
+                    else
+                        error('Must provide input training data.')
+                    end
+                end
+                
+                if s.testError && ~isempty(s.testData) && isempty(s.basesEvalTest)
+                    if iscell(s.testData) && ~isempty(s.testData{1})
+                        s.basesEvalTest = s.bases.eval(s.testData{1});
+                    elseif ~iscell(s.testData) && ~isempty(s.testData)
+                        s.basesEvalTest = s.bases.eval(s.testData);
+                    else
+                        error('Must provide input test data.')
+                    end
+                end
+            end
+            s.basesEval = cellfun(@full,s.basesEval,'uniformoutput',false);
+            if ~isempty(s.basesEvalTest)
+                s.basesEvalTest = cellfun(@full,s.basesEvalTest,'uniformoutput',false);
             end
             
             if s.rankAdaptation
                 if ~isfield(s.rankAdaptationOptions,'type')
-                    [f,output] = solveAdaptation(s,varargin{:});
+                    [f,output] = solveAdaptation(s);
                 elseif ischar(s.rankAdaptationOptions.type)
                     % Call the method corresponding to the asked rank adaptation option
                     str = lower(s.rankAdaptationOptions.type); str(1) = upper(str(1));
@@ -114,32 +163,26 @@ classdef TensorLearning < Learning
                     error('The rankAdaptationOptions property must be either empty or a string.')
                 end
             elseif strcmpi(s.algorithm,'standard')
-                [f,output] = solveStandard(s,varargin{:});
+                [f,output] = solveStandard(s);
             else
                 str = lower(s.algorithm); str(1) = upper(str(1));
                 eval(['[f,output] = solve',str,'(s,varargin{:});']);
             end
-        end
+        end 
+    end
         
-        function [f,output] = solveStandard(s,y,x)
+    methods (Hidden)
+        function [f,output] = solveStandard(s)
             % SOLVESTANDARD - Solver for the learning problem with tensor formats using the standard algorithm (without adaptation)
             %
-            % [f,output] = SOLVESTANDARD(s,y,x)
+            % [f,output] = SOLVESTANDARD(s)
             % s: TensorLearning
-            % y: n-by-1 double
-            % x: n-by-s.order double
             % f: FunctionalTensor
             % output: structure
             
-            % Bases evaluation
-            if nargin>=3 && ~isempty(x)
-                s.basesEval = eval(s.bases,x);
-            end
-            s.basesEval = cellfun(@full,s.basesEval,'uniformoutput',false);
-            
             output.flag = 0;
             
-            [s,f] = initialize(s,y); % Initialization
+            [s,f] = initialize(s); % Initialization
             f = FunctionalTensor(f,s.basesEval);
             
             % Replication of the LinearModelLearning objects
@@ -150,7 +193,8 @@ classdef TensorLearning < Learning
             end
             
             % Working set paths
-            if any(cellfun(@(x) x.basisAdaptation,s.linearModelLearning)) && isempty(s.basesAdaptationPath)
+            if any(cellfun(@(x) x.basisAdaptation,s.linearModelLearning)) && ...
+                    isempty(s.basesAdaptationPath)
                 s.basesAdaptationPath = adaptationPath(s.bases);
             end
             
@@ -170,8 +214,11 @@ classdef TensorLearning < Learning
                 end
                 
                 for alpha = alphaList
-                    [s,A,b,f] = prepareAlternatingMinimizationSystem(s,f,alpha,y);
-                    [C, outputLML] = s.linearModelLearning{alpha}.solve(b,A);
+                    [s,A,b,f] = prepareAlternatingMinimizationSystem(s,f,alpha);
+                    s.linearModelLearning{alpha}.trainingData = {[], b};
+                    s.linearModelLearning{alpha}.basis = [];
+                    s.linearModelLearning{alpha}.basisEval = A;
+                    [C, outputLML] = s.linearModelLearning{alpha}.solve();
                     
                     if isempty(C) || ~nnz(C) || ~all(isfinite(C)) || any(isnan(C))
                         warning('Empty, zero or NaN solution, returning to the previous iteration.')
@@ -199,7 +246,8 @@ classdef TensorLearning < Learning
                 end
                 
                 if s.testError
-                    output.testError = s.lossFunction.testError(FunctionalTensor(f.tensor,s.bases),s.testErrorData);
+                    fEvalTest = FunctionalTensor(f, s.basesEvalTest);
+                    output.testError = s.lossFunction.testError(fEvalTest,s.testData);
                     output.testErrorIterations(k) = output.testError;
                 end
                 
@@ -240,20 +288,13 @@ classdef TensorLearning < Learning
             end
         end
         
-        function [f,output] = solveAdaptation(s,y,x)
+        function [f,output] = solveAdaptation(s)
             % SOLVEADAPTATION - Solver for the learning problem with tensor formats using the adaptive algorithm
             %
-            % [f,output] = SOLVEADAPTATION(s,y,x)
+            % [f,output] = SOLVEADAPTATION(s)
             % s: TensorLearning
-            % y: n-by-1 double
-            % x: n-by-s.order double
             % f: FunctionalTensor
             % output: structure
-            
-            % Bases evaluation
-            if nargin>=3 && ~isempty(x)
-                s.basesEval = eval(s.bases,x);
-            end
             
             slocal = localSolver(s);
             slocal.display = false;
@@ -272,13 +313,15 @@ classdef TensorLearning < Learning
             for i = 1:s.rankAdaptationOptions.maxIterations
                 slocal.bases = s.bases;
                 slocal.basesEval = s.basesEval;
-                slocal.testErrorData = s.testErrorData;
+                slocal.basesEvalTest = s.basesEvalTest;
+                slocal.trainingData = s.trainingData;
+                slocal.testData = s.testData;
                 slocal.rank = newRank;
                 
                 fOld = f;
-                [f,outputLocal] = slocal.solve(y);
+                [f,outputLocal] = slocal.solve();
                 if isfield(outputLocal,'error')
-                    errors(i)=outputLocal.error;
+                    errors(i) = outputLocal.error;
                     if isinf(errors(i))
                         disp('Infinite error, returning the previous iterate.')
                         f = fOld;
@@ -289,7 +332,8 @@ classdef TensorLearning < Learning
                 end
                 
                 if s.testError
-                    testErrors(i) = s.lossFunction.testError(FunctionalTensor(f.tensor,s.bases),s.testErrorData);
+                    fEvalTest = FunctionalTensor(f, s.basesEvalTest);
+                    testErrors(i) = s.lossFunction.testError(fEvalTest,s.testData);
                 end
                 
                 if s.storeIterates
@@ -362,7 +406,8 @@ classdef TensorLearning < Learning
                             fprintf('\t\tStorage complexity after permutation  = %i\n',storage(f.tensor));
                         end
                         if s.testError
-                            testErrors(i) = s.lossFunction.testError(FunctionalTensor(f.tensor,s.bases),s.testErrorData);
+                            fEvalTest = FunctionalTensor(f, s.basesEvalTest);
+                            testErrors(i) = s.lossFunction.testError(fEvalTest,s.testData);
                             if s.display
                                 fprintf('\t\tTest error after permutation = %.2d\n',testErrors(i));
                             end
@@ -378,9 +423,9 @@ classdef TensorLearning < Learning
                         break
                     end
                     treeAdapt = false;
-                    [f,newRank,enrichedNodes,tensorForInitialization] = newRankSelection(s,f,y);
+                    [f,newRank,enrichedNodes,tensorForInitialization] = newRankSelection(s,f);
                     output.enrichedNodesIterations{i} = enrichedNodes;
-                    slocal = initialGuessNewRank(s,slocal,tensorForInitialization,y,newRank);
+                    slocal = initialGuessNewRank(s,slocal,tensorForInitialization,newRank);
                 else
                     treeAdapt = true;
                     enrichedNodes = [];
@@ -417,17 +462,15 @@ classdef TensorLearning < Learning
         
         % INITIALIZE - Initialization of the learning algorithm
         %
-        % [s,f] = INITIALIZE(s,y)
+        % [s,f] = INITIALIZE(s)
         % s: TensorLearning
-        % y: n-by-1 double
         % f: AlgebraicTensor
-        [s,f] = initialize(s,y);
+        [s,f] = initialize(s);
         
         % PREPROCESSING - Initialization of the alternating minimization algorithm
         %
-        % [s,f] = PREPROCESSING(s,y)
+        % [s,f] = PREPROCESSING(s,f)
         % s: TensorLearning
-        % y: n-by-1 double
         % f: AlgebraicTensor
         [s,f] = preProcessing(s,f);
         
@@ -440,14 +483,13 @@ classdef TensorLearning < Learning
         
         % PREPAREALTERNATINGMINIMIZATIONSYSTEM - Preparation of the alternating minimization algorithm
         %
-        % [s,A,b] = PREPAREALTERNATINGMINIMIZATIONSYSTEM(s,f,mu,y)
+        % [s,A,b] = PREPAREALTERNATINGMINIMIZATIONSYSTEM(s,f,mu)
         % s: TensorLearning
         % f: FunctionalTensor
         % mu: 1-by-1 integer
-        % y: n-by-1 double
         % A: n-by-numel(f.tensor.tensors{mu}) double
         % b: n-by-1 double
-        [s,A,b] = prepareAlternatingMinimizationSystem(s,f,mu,y);
+        [s,A,b] = prepareAlternatingMinimizationSystem(s,f,mu);
         
         % SETPARAMETER - Update of the parameter of the tensor
         %
@@ -484,24 +526,22 @@ classdef TensorLearning < Learning
         
         % NEWRANKSELECTION - Selection of a new rank in the adaptive algorithm
         %
-        % [f,newRank,enrichedNodes,tensorForInitialization] = NEWRANKSELECTION(s,f,y,output)
+        % [f,newRank,enrichedNodes,tensorForInitialization] = NEWRANKSELECTION(s,f,output)
         % s: TensorLearning
         % f: FunctionalTensor
-        % y: n-by-1 double
         % output: cell
         % newRank: 1-by-s.numberOfParameters integer
         % enrichedNodes: 1-by-N integer, with N the number of enriched nodes
         % tensorForInitialization: AlgebraicTensor
-        [f,newRank,enrichedNodes,tensorForInitialization] = newRankSelection(s,f,y,output);
+        [f,newRank,enrichedNodes,tensorForInitialization] = newRankSelection(s,f,output);
         
         % INITIALGUESSNEWRANK - Computation of the initial guess with the new selected rank
         %
-        % slocal = INITIALGUESSNEWRANK(s,slocal,f,y,newRank)
+        % slocal = INITIALGUESSNEWRANK(s,slocal,f,newRank)
         % s, slocal: TensorLearning
         % f: FunctionalTensor
-        % y: n-by-1 double
         % newRank: 1-by-s.numberOfParameters integer
-        slocal = initialGuessNewRank(s,slocal,f,y,newRank);
+        slocal = initialGuessNewRank(s,slocal,f,newRank);
         
         % ADAPTATIONDISPLAY - Display during the adaptation
         %

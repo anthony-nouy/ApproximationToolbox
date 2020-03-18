@@ -177,10 +177,11 @@ classdef FunctionalTensorPrincipalComponentAnalysis
                     case 'regression'
                         nbeval = cardinal(basis)*FPCA.regressionSamplingFactor;
                         xs = random(X,nbeval);
-                        Hs = basis.eval(xs);
-                        ys = fun(xs);
                         ls = LinearModelLearningSquareLoss;
-                        cores{d} = ls.solve(ys,Hs);
+                        ls.basis = [];
+                        ls.basisEval = basis.eval(xs);
+                        ls.trainingData = {[], fun(xs)};
+                        cores{d} = ls.solve();
                         samples{d} = xs;
                         sznu=[cardinal(fpc{nu-1}),cardinal(bases{nu}),1];
                         numberOfEvaluations = numberOfEvaluations + nbeval;
@@ -328,11 +329,10 @@ classdef FunctionalTensorPrincipalComponentAnalysis
                     case 'regression'
                         nbeval = numel(H)*FPCA.regressionSamplingFactor;
                         xs = random(X,nbeval);
-                        Hs = H.eval(xs);
-                        ys = fun(xs);
                         ls = LinearModelLearningSquareLoss;
-                        
-                        tcore = ls.solve(ys,Hs);
+                        ls.basisEval = H.eval(xs);
+                        ls.trainingData = {[], fun(xs)};
+                        tcore = ls.solve();
                         szalpha = cellfun(@numel,fpc);
                         tcore = FullTensor(tcore,length(szalpha),szalpha);
                         samples{d+1} = xs;
@@ -365,11 +365,10 @@ classdef FunctionalTensorPrincipalComponentAnalysis
                     case 'regression'
                         nbeval = numel(H)*FPCA.regressionSamplingFactor;
                         xs = random(X,nbeval);
-                        Hs = H.eval(xs);
-                        ys = fun(xs);
                         ls = LinearModelLearningSquareLoss;
-                        
-                        tcore = ls.solve(ys,Hs);
+                        ls.basisEval = H.eval(xs);
+                        ls.trainingData = {[], fun(xs)};
+                        tcore = ls.solve();
                         szalpha = cellfun(@numel,fpc);
                         tcore = FullTensor(tcore,length(szalpha),szalpha);
                         samples{d+1} = xs;
@@ -496,11 +495,11 @@ classdef FunctionalTensorPrincipalComponentAnalysis
                 case 'regression'
                     nbeval = cardinal(alphaBasis{alpha})*FPCA.regressionSamplingFactor;
                     xs = random(X,nbeval);
-                    Hs = alphaBasis{alpha}.eval(xs(:,tree.dims{alpha}));
-                    ys = fun(xs);
                     ls = LinearModelLearningSquareLoss;
+                    ls.basisEval = alphaBasis{alpha}.eval(xs(:,tree.dims{alpha}));
+                    ls.trainingData = {[], fun(xs)};
                     samples{alpha} = xs;
-                    tensors{alpha} = ls.solve(ys,Hs);
+                    tensors{alpha} = ls.solve();
                     tensors{alpha} = FullTensor(tensors{alpha},length(szalpha),szalpha);
                     if FPCA.display
                         fprintf('Least-squares projection - nbeval = %d\n',nbeval);
@@ -699,15 +698,16 @@ classdef FunctionalTensorPrincipalComponentAnalysis
                         output.numberOfEvaluations = size(gridalpha,1)*k;
                     case 'regression'
                         gridalpha = FPCA.alphaGridRegression(alpha,X,basis);
-                        Hs = basis.eval(gridalpha);
                         ls = LinearModelLearningSquareLoss;
+                        ls.basisEval = basis.eval(gridalpha);
                         As =  zeros(size(gridalpha,1),0) ;
                         
                         for k=1:N
                             grid = FullTensorGrid({gridalpha,gridnotalpha(k,:)});
                             xgrid=array(grid);
                             As = [As,fun.eval(xgrid(:,I))];
-                            A = ls.solve(As,Hs);
+                            ls.trainingData = {[], As};
+                            A = ls.solve();
                             A = FullTensor(A,2,[cardinal(basis),k]);
                             [a,sv] = principalComponents(A,tol);
                             if  sv(end)<1e-15 || size(a,2)< ceil(k/FPCA.PCASamplingFactor)
@@ -779,9 +779,10 @@ classdef FunctionalTensorPrincipalComponentAnalysis
                         xgrid=array(grid);
                         As = fun(xgrid(:,I));
                         As = reshape(As,[size(gridalpha,1),N]);
-                        Hs = basis.eval(gridalpha);
                         ls = LinearModelLearningSquareLoss;
-                        A = ls.solve(As,Hs);
+                        ls.basisEval = basis.eval(gridalpha);
+                        ls.trainingData = {[], As};
+                        A = ls.solve();
                         A = FullTensor(A,2,[cardinal(basis),N]);
                         [a,sv] = principalComponents(A,tol);
                         output.numberOfEvaluations = size(xgrid,1);

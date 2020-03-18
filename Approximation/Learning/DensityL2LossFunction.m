@@ -24,18 +24,32 @@ classdef DensityL2LossFunction < LossFunction
     end
     
     methods
-        function [l,lRef] = eval(s,v,x)
-            lRef = norm(v)^2;
-            l = lRef - 2*v(x);
+        function [l,lRef] = eval(s,v,x,varargin)
+            if isa(v,'Function')
+                pred = v.eval(x);
+            else
+                pred = v;
+            end
+            
+            if ismethod(v, 'norm')
+                lRef = norm(v)^2;
+            elseif nargin > 3
+                lRef = varargin{1}^2;
+            else
+                warning(['Input v must have a method norm, or its norm ', ...
+                    'must be provided in last argument.'])
+                lRef = NaN;
+            end
+            l = lRef - 2*pred;
         end
         
-        function e = relativeTestError(s,v,x)
+        function e = relativeTestError(s,v,x,varargin)
             error('Relative test error not available for DensityL2LossFunction.')
         end
         
-        function e = testError(s,v,x)
+        function e = testError(s,v,x,varargin)
             assert(strcmpi(s.errorType,'risk'),'The errorType property must be set to "risk".')
-            e = riskEstimation(s,v,x);
+            e = riskEstimation(s,v,x, varargin{:});
         end
     end
 end

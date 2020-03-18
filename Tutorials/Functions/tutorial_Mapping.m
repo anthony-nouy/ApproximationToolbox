@@ -60,8 +60,10 @@ mapping = Mapping('c',d,1,{@(x) x*omega});
 H = FunctionalBasesWithMappedVariables({h},mapping,X);
 
 % Computation of the approximation coefficients
-A = H.eval(x); A = A{1};
-a = ls.solve(y,A);
+A = H.eval(x);
+ls.basisEval = A{1};
+ls.trainingData = {[], y};
+a = ls.solve();
 
 % Evaluation of the approximation on the test points
 Psi = FunctionalBasesWithMappedVariables({SubFunctionalBasis(h,a)},mapping,X);
@@ -74,8 +76,10 @@ mapping = Mapping('m',d,1,omega.',0);
 H = FunctionalBasesWithMappedVariables({h},mapping,X);
 
 % Computation of the approximation coefficients
-A = H.eval(x); A = A{1};
-a = ls.solve(y,A);
+A = H.eval(x);
+ls.basisEval = A{1};
+ls.trainingData = {[], y};
+a = ls.solve();
 
 % Evaluation of the approximation on the test points
 Psi = FunctionalBasesWithMappedVariables({SubFunctionalBasis(h,a)},mapping,X);
@@ -88,8 +92,10 @@ H.mapping = Mapping('f',d,1,@(x) x*omega);
 H = FunctionalBasesWithMappedVariables({h},mapping,X);
 
 % Computation of the approximation coefficients
-A = H.eval(x); A = A{1};
-a = ls.solve(y,A);
+A = H.eval(x); 
+ls.basisEval = A{1};
+ls.trainingData = {[], y};
+a = ls.solve();
 
 % Evaluation of the approximation on the test points
 Psi = FunctionalBasesWithMappedVariables({SubFunctionalBasis(h,a)},mapping,X);

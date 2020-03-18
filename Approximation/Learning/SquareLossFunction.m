@@ -27,11 +27,10 @@ classdef SquareLossFunction < LossFunction
         function [l,lRef] = eval(s,v,z)
             if isa(v,'Function')
                 yPred = v.eval(z{1});
-                y = z{2};
             else
                 yPred = v;
-                y = z;
             end
+            y = z{2};
             
             l = (yPred-y).^2;
             
@@ -48,7 +47,7 @@ classdef SquareLossFunction < LossFunction
         function e = testError(s,v,z)
             switch s.errorType
                 case 'risk'
-                    e = riskEstimation(s,v,z);
+                    e = sqrt(riskEstimation(s,v,z));
                 case 'relative'
                     e = relativeTestError(s,v,z);
                 otherwise

@@ -90,8 +90,12 @@ end
 
 %% Computation of the approximation
 s.bases = H;
+% s.basesAdaptationPath = adaptationPath(H);
+s.basesEval = H.eval(x);
+s.trainingData = {[], y};
 
 s.tolerance.onStagnation = 1e-6;
+s.tolerance.onError = 1e-6;
 
 s.initializationType = 'canonical';
 
@@ -100,7 +104,8 @@ s.linearModelLearning.regularization = false;
 s.linearModelLearning.errorEstimation = true;
 
 s.testError = true;
-s.testErrorData = {xTest,yTest};
+s.testData = {xTest, yTest};
+% s.basesEvalTest = H.eval(xTest);
 
 s.rankAdaptation = true;
 s.rankAdaptationOptions.maxIterations = 20;
@@ -108,7 +113,7 @@ s.rankAdaptationOptions.theta = 0.8;
 
 s.treeAdaptation = true;
 s.treeAdaptationOptions.maxIterations = 1e2;
-s.treeAdaptationOptions.forceRankAdaptation = true;
+% s.treeAdaptationOptions.forceRankAdaptation = true;
 
 s.alternatingMinimizationParameters.maxIterations = 50;
 s.alternatingMinimizationParameters.stagnation = 1e-10;
@@ -120,8 +125,8 @@ s.rankAdaptationOptions.earlyStopping = true;
 s.rankAdaptationOptions.earlyStoppingFactor = 10;
 
 tic
-[f, output] = s.solve(y,x);
-if s.rankAdaptation
+[f, output] = s.solve();
+if s.rankAdaptation && isfield(output, 'testErrorIterations')
     [~,i] = min(output.testErrorIterations);
     f = output.iterates{i};
     output.error = output.errorIterations(i);

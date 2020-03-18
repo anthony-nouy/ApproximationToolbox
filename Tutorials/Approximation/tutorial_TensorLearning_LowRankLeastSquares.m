@@ -43,8 +43,8 @@ H = FunctionalBases(h);
 %% Training and test samples
 x = random(X,1000);
 y = fun(x);
-xtest = random(X,10000);
-ytest = fun(xtest);
+xTest = random(X,10000);
+yTest = fun(xTest);
 
 %% Canonical format
 s = CanonicalTensorLearning(d,SquareLossFunction);
@@ -56,19 +56,20 @@ s.alternatingMinimizationParameters.maxIterations = 100;
 s.linearModelLearning.regularization = false;
 s.linearModelLearning.basisAdaptation = true;
 s.bases = H;
+s.trainingData = {x,y};
 s.display = true;
 s.alternatingMinimizationParameters.display = false;
 s.testError = true;
-s.testErrorData = {xtest,ytest};
+s.testData = {xTest,yTest};
 s.alternatingMinimizationParameters.oneByOneFactor = false;
 s.alternatingMinimizationParameters.innerLoops = 2;
 s.alternatingMinimizationParameters.random = false;
 s.rankAdaptationOptions.maxIterations = 20;
 
-[f,outputCanonical] = s.solve(y,x);
+[f,outputCanonical] = s.solve();
 
-fxtest = f(xtest);
-errtest = norm(ytest-fxtest)/norm(ytest);
+fxtest = f(xTest);
+errtest = norm(yTest-fxtest)/norm(yTest);
 fprintf('\nCanonical rank = %d, test error = %d\n\n',numel(f.tensor.core.data),errtest)
 
 %% Tensor train format
@@ -82,8 +83,10 @@ s.alternatingMinimizationParameters.maxIterations = 100;
 s.linearModelLearning.regularization = false;
 s.linearModelLearning.basisAdaptation = true;
 s.bases = H;
+s.trainingData = {x,y};
 s.testError = true;
-s.testErrorData = {xtest,ytest};
+s.testData = {xTest,yTest};
+s.basesEvalTest = H.eval(xTest);
 s.rank = 1;
 s.rankAdaptationOptions.truncateBefore = true;
 s.rankAdaptationOptions.rankOneCorrection = true;
@@ -92,7 +95,7 @@ s.treeAdaptation = true;
 s.treeAdaptationOptions.maxIterations = 100;
 s.treeAdaptationOptions.tolerance = 1e-8;
 
-[f,outputTensorTrain] = s.solve(y,x);
+[f,outputTensorTrain] = s.solve();
 
 if s.rankAdaptation && isfield(outputTensorTrain,'testErrorIterations')
     [~,I] = min(outputTensorTrain.testErrorIterations);
@@ -109,7 +112,7 @@ else
     perm = 1:f.tensor.order;
 end
 
-fxtest = f(xtest(:,perm));
-errtest = norm(ytest-fxtest)/norm(ytest);
+fxtest = f(xTest(:,perm));
+errtest = norm(yTest-fxtest)/norm(yTest);
 fprintf('\nTest error = %d\n',errtest);
 fprintf('TT ranks = [ %s ]\n',num2str(f.tensor.ranks))

@@ -1,10 +1,10 @@
 % Class TreeBasedTensorLearning: learning with tree-based tensor formats
 %
 % References:
-% - Grelier, E., Nouy, A., & Chevreuil, M. (2018). Learning with tree-based 
+% - Grelier, E., Nouy, A., & Chevreuil, M. (2018). Learning with tree-based
 % tensor formats. arXiv preprint arXiv:1811.04455
-% - Grelier, E., Nouy, A., & Lebrun, R. (2019). Learning high-dimensional 
-% probability distributions using tree tensor networks. arXiv preprint 
+% - Grelier, E., Nouy, A., & Lebrun, R. (2019). Learning high-dimensional
+% probability distributions using tree tensor networks. arXiv preprint
 % arXiv:1912.07913.
 
 % Copyright (c) 2020, Anthony Nouy, Erwan Grelier, Loic Giraldi
@@ -56,7 +56,7 @@ classdef TreeBasedTensorLearning < TensorLearning
         end
         
         %% Standard solver methods
-        function [s,f] = initialize(s,y)
+        function [s,f] = initialize(s)
             if isempty(s.tree)
                 error('Must provide a DimensionTree object in property tree.')
             end
@@ -76,7 +76,7 @@ classdef TreeBasedTensorLearning < TensorLearning
                 case 'initialguess'
                     f = s.initialGuess;
                 case 'canonical'
-                    f = canonicalInitialization(s,max(s.rank),y);
+                    f = canonicalInitialization(s,max(s.rank));
                     if ~all(f.ranks == s.rank)
                         tr = Truncator;
                         tr.tolerance = eps;
@@ -119,7 +119,7 @@ classdef TreeBasedTensorLearning < TensorLearning
             end
         end
         
-        function [s,A,b,f] = prepareAlternatingMinimizationSystem(s,f,mu,y)
+        function [s,A,b,f] = prepareAlternatingMinimizationSystem(s,f,mu)
             if s.linearModelLearning{mu}.basisAdaptation
                 if ismember(mu,s.tree.internalNodes)
                     if s.linearModelLearningParameters.basisAdaptationInternalNodes
@@ -137,26 +137,13 @@ classdef TreeBasedTensorLearning < TensorLearning
             g = parameterGradientEval(f,mu);
             A = reshape(g.data, g.sz(1),[]);
             
-% To be implemented
-%             if s.testError && s.linearModelLearning{mu}.testError
-%                 if isempty(s.testErrorBasesEval)
-%                     if iscell(s.testErrorData)
-%                         xTest = s.testErrorData{1};
-%                     else
-%                         xTest = s.testErrorData;
-%                     end
-%                     s.testErrorBasesEval = s.bases.eval(xTest);
-%                 end
-%                 g = parameterGradientEval(FunctionalTensor(f.tensor,s.testErrorBasesEval),mu);
-%                 s.linearModelLearning{mu}.testErrorData = reshape(g.data, g.sz(1),[]);
-%             end
-            
             if isa(s.lossFunction,'SquareLossFunction')
-                b = y;
+                b = s.trainingData{2};
             elseif isa(s.lossFunction,'DensityL2LossFunction')
-                if isempty(y)
+                if ~iscell(s.trainingData)
                     b = [];
-                else
+                elseif iscell(s.trainingData) && length(s.trainingData) == 2
+                    y = s.trainingData{2};
                     if isa(y,'FunctionalTensor')
                         y = y.tensor;
                     end
@@ -188,13 +175,12 @@ classdef TreeBasedTensorLearning < TensorLearning
             fprintf('Ranks = [ %s ]',num2str(f.tensor.ranks));
         end
         
-        function f = canonicalInitialization(s,r,y)
+        function f = canonicalInitialization(s,r)
             % CANONICALINITIALIZATION - Rank-r canonical initialization
             %
-            % f = CANONICALINITIALIZATION(s,r,y)
+            % f = CANONICALINITIALIZATION(s,r)
             % s: TreeBasedTensorLearning
             % r: 1-by-1 integer
-            % y: n-by-1 array of doubles
             % f: TreeBasedTensor
             
             C = CanonicalTensorLearning(s.order,s.lossFunction);
@@ -206,6 +192,7 @@ classdef TreeBasedTensorLearning < TensorLearning
             C.alternatingMinimizationParameters = s.alternatingMinimizationParameters;
             C.bases = s.bases;
             C.basesEval = s.basesEval;
+            C.basesEvalTest = s.basesEvalTest;
             C.display = false;
             C.alternatingMinimizationParameters.display = false;
             C.initializationType = 'mean';
@@ -213,36 +200,41 @@ classdef TreeBasedTensorLearning < TensorLearning
             C.rankAdaptationOptions.maxIterations = r;
             C.basesAdaptationPath = s.basesAdaptationPath;
             C.testError = s.testError;
-            C.testErrorData = s.testErrorData;
-            C.orthonormalityWarningDisplay = false;
+            C.trainingData = s.trainingData;
+            C.testData = s.testData;
+            C.warnings = s.warnings;
             
-            f = C.solve(y);
+            f = C.solve();
             f = treeBasedTensor(f.tensor,s.tree,s.isActiveNode);
         end
         
-        function f = canonicalCorrection(s,f,r,y,x)
+        function f = canonicalCorrection(s,f,r)
             % CANONICALCORRECTION - Rank-r canonical correction
             %
-            % f = CANONICALCORRECTION(s,f,r,y,x)
+            % f = CANONICALCORRECTION(s,f,r)
             % s: TreeBasedTensorLearning
             % f: FunctionalTensor
             % r: 1-by-1 integer
-            % y: n-by-1 array of doubles
-            % x: n-by-s.order array of doubles
             
             if isa(f,'FunctionalTensor')
-                if nargin == 5
-                    fx = f(x);
-                else
-                    fx = timesMatrixEvalDiag(f.tensor,s.basesEval);
-                end
+                fx = timesMatrixEvalDiag(f.tensor,s.basesEval);
             elseif isempty(f)
                 fx = 0;
             else
                 error('Not implemented.')
             end
             
-            fadd = canonicalInitialization(s,r,y-fx);
+            if isa(s.lossFunction,'SquareLossFunction')
+                R = s.trainingData{2} - fx;
+            elseif isa(s.lossFunction,'DensityL2LossFunction')
+                R = fx;
+            end
+            if ~iscell(s.trainingData)
+                s.trainingData = {s.trainingData};
+            end
+            s.trainingData{2} = R;
+            
+            fadd = canonicalInitialization(s,r);
             if isa(fadd,'FunctionalTensor')
                 fadd=fadd.tensor;
             end
@@ -253,22 +245,15 @@ classdef TreeBasedTensorLearning < TensorLearning
             end
         end
         
-        function f = rankOneCorrection(s,f,y,x)
+        function f = rankOneCorrection(s,f)
             % RANKONECORRECTION - Rank one canonical correction
             %
-            % f = RANKONECORRECTION(s,f,r,y,x)
+            % f = RANKONECORRECTION(s,f)
             % s: TreeBasedTensorLearning
             % f: FunctionalTensor
-            % r: 1-by-1 integer
-            % y: n-by-1 array of doubles
-            % x: n-by-s.order array of doubles
             
             if isa(f,'FunctionalTensor')
-                if nargin == 4
-                    fx = f(x);
-                else
-                    fx = timesMatrixEvalDiag(f.tensor,s.basesEval);
-                end
+                fx = timesMatrixEvalDiag(f.tensor,s.basesEval);
             elseif isempty(f)
                 fx = 0;
             else
@@ -276,7 +261,7 @@ classdef TreeBasedTensorLearning < TensorLearning
             end
             
             if isa(s.lossFunction,'SquareLossFunction')
-                R = y - fx;
+                R = s.trainingData{2} - fx;
             elseif isa(s.lossFunction,'DensityL2LossFunction')
                 R = f;
             end
@@ -289,7 +274,13 @@ classdef TreeBasedTensorLearning < TensorLearning
             slocal.alternatingMinimizationParameters.display = false;
             slocal.initializationType = 'ones';
             slocal.alternatingMinimizationParameters.maxIterations = 1;
-            fadd = slocal.solve(R);
+            
+            if ~iscell(slocal.trainingData)
+                slocal.trainingData = {slocal.trainingData};
+            end
+            slocal.trainingData{2} = R;
+            
+            fadd = slocal.solve();
             
             if isa(fadd,'FunctionalTensor')
                 fadd = fadd.tensor;
@@ -356,19 +347,19 @@ classdef TreeBasedTensorLearning < TensorLearning
             end
         end
         
-        function [f, newRank, enrichedNodes, tensorForSelection] = newRankSelection(s,f,y)
+        function [f, newRank, enrichedNodes, tensorForSelection] = newRankSelection(s,f)
             if s.rankAdaptationOptions.rankOneCorrection
                 slocal = s;
                 ranksAdd = ones(1,f.tensor.tree.nbNodes); ranksAdd(f.tensor.tree.root) = 0;
                 slocal.rank = makeRanksAdmissible(f.tensor,f.tensor.ranks + ranksAdd);
                 slocal.initializationType = 'InitialGuess';
                 tr = Truncator('tolerance',0,'maxRank',slocal.rank);
-                slocal.initialGuess = tr.truncate(rankOneCorrection(s,f,y));
+                slocal.initialGuess = tr.truncate(rankOneCorrection(s,f));
                 slocal.alternatingMinimizationParameters.maxIterations = 10;
                 slocal.rankAdaptation = false;
                 slocal.display = false;
                 slocal.alternatingMinimizationParameters.display = false;
-                tensorForSelection = slocal.solve(y);
+                tensorForSelection = slocal.solve();
                 tensorForSelection = tensorForSelection.tensor;
             else
                 tensorForSelection = f.tensor;
@@ -453,7 +444,7 @@ classdef TreeBasedTensorLearning < TensorLearning
             end
         end
         
-        function slocal = initialGuessNewRank(s,slocal,f,y,newRank)
+        function slocal = initialGuessNewRank(s,slocal,f,newRank)
             slocal.initializationType = 'initialguess';
             if ~all(f.ranks == newRank)
                 tr = Truncator;
@@ -583,18 +574,23 @@ for l = 1:max(t.level)
 end
 end
 
-function f = enrichedEdgesToRanksCanonical(s,y,f,newRank)
+function f = enrichedEdgesToRanksCanonical(s,f,newRank)
 % ENRICHEDEDGEDTORANKSCANONICAL - Enrichment of the ranks of specified edges of the tensor f using canonical tensor approximations for each child / parent couple of the enriched edges
 %
-% f = ENRICHEDEDGEDTORANKSCANONICAL(s,y,f,newRank)
+% f = ENRICHEDEDGEDTORANKSCANONICAL(s,f,newRank)
 % s: TreeBasedTensorLearning
-% y: n-by-1 array of doubles
 % f: TreeBasedTensor
 % newRank: 1-by-s.numberOfParameters integer
 
 
 if s.linearModelLearning.basisAdaptation && isempty(s.basesAdaptationPath)
-    s.basesAdaptationPath = adaptationPath(s.bases);
+    if ismethod(s.bases, 'adaptationPath')
+        s.basesAdaptationPath = adaptationPath(s.bases);
+    else
+        warning('Cannot perform basis adaptation, disabling it.')
+        s.linearModelLearning = cellfun(@(x) setfield(x, 'basisAdaptation', false), ...
+            s.linearModelLearning, 'UniformOutput', false);
+    end
 end
 H = s.basesEval;
 
@@ -715,9 +711,19 @@ for l = 1:max(t.level)
         rGamma = Hgamma.sz(2:end);
         Hgamma = Hgamma.data(:,:);
         
-        yres = y - timesMatrixEvalDiag(f,H);
+        fx = timesMatrixEvalDiag(f,s.basesEval);
+        if isa(s.lossFunction,'SquareLossFunction')
+            R = s.trainingData{2} - fx;
+        elseif isa(s.lossFunction,'DensityL2LossFunction')
+            R = fx;
+        end
+        if ~iscell(s.trainingData)
+            trainingData = {s.trainingData};
+        end
+        trainingData{2} = R;
         
         C = CanonicalTensorLearning(2,s.lossFunction);
+        C.trainingData = trainingData;
         if iscell(s.linearModelLearning)
             C.linearModelLearning = s.linearModelLearning{1};
         else
@@ -736,8 +742,8 @@ for l = 1:max(t.level)
                 adaptationPathGamma};
         end
         C.rank = addedRank;
-        C.orthonormalityWarningDisplay = false;
-        a = C.solve(yres);
+        C.warnings = structfun(@(x) false, s.warnings, 'UniformOutput', false);
+        a = C.solve();
         r = size(a.space.spaces{1},2);
         
         ind = size(f.tensors{alpha}); ind(end) = r;

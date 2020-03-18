@@ -24,8 +24,8 @@ classdef LossFunction
     end
     
     methods
-        function [e,eRef] = riskEstimation(s,v,z)
-            [l,lRef] = eval(s,v,z);
+        function [e,eRef] = riskEstimation(s,v,z,varargin)
+            [l,lRef] = eval(s,v,z,varargin{:});
             e = 1/length(l) * sum(l);
             
             if nargout == 2

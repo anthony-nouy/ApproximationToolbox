@@ -13,12 +13,12 @@
 % but WITHOUT ANY WARRANTY; without even the implied warranty of
 % MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 % GNU Lesser General Public License for more details.
-% 
+%   
 % You should have received a copy of the GNU Lesser General Public License
 % along with ApproximationToolbox.  If not, see <https://www.gnu.org/licenses/>.
 
 classdef TensorTrainTensorLearning < TensorLearning
-
+    
     properties
         % MAXRANKVARIATION - Integer: maximum rank variation
         maxRankVariation = 100
@@ -42,18 +42,22 @@ classdef TensorTrainTensorLearning < TensorLearning
         end
         
         %% Standard solver methods
-        function [s,f] = initialize(s,y)
+        function [s,f] = initialize(s)
             s.explorationStrategy = 1:s.order;
             if numel(s.rank)==1
                 s.rank = repmat(s.rank,1,s.order-1);
             end
             switch lower(s.initializationType)
                 case 'mean'
+                    if ~iscell(s.trainingData) || ...
+                            (iscell(s.trainingData) && length(s.trainingData) == 1)
+                        error('Initialization type not implemented in unsupervised learning.')
+                    end
                     os = mean(s.bases);
-                    f = CanonicalTensor(TSpaceVectors(os),mean(y));
+                    f = CanonicalTensor(TSpaceVectors(os),mean(s.trainingData{2}));
                     s.rank = ones(1,s.order-1);
                 case 'canonical'
-                    f = canonicalInitialization(s,max(s.rank),y);
+                    f = canonicalInitialization(s,max(s.rank));
                 case 'initialguess'
                     f = s.initialGuess;
                 case 'random'
@@ -66,7 +70,7 @@ classdef TensorTrainTensorLearning < TensorLearning
             
             if any(f.ranks<s.rank) && ~strcmpi(s.initializationType,'canonical')
                 r = max(s.rank-f.ranks);
-                f = canonicalCorrection(s,f,r,y);
+                f = canonicalCorrection(s,f,r);
             end
             if ~all(f.ranks==s.rank) && all(f.ranks>=s.rank)
                 trunc = Truncator('tolerance',0,'maxRank',s.rank);
@@ -87,10 +91,14 @@ classdef TensorTrainTensorLearning < TensorLearning
             selmu = s.explorationStrategy;
         end
         
-        function [s,A,b,f] = prepareAlternatingMinimizationSystem(s,f,mu,y)
+        function [s,A,b,f] = prepareAlternatingMinimizationSystem(s,f,mu)
+            if ~isa(s.lossFunction, 'SquareLossFunction')
+                error('Method not implemented for this loss function.')
+            end
+            
             g = parameterGradientEval(f,mu);
             A = g.data(:,:);
-            b = y;
+            b = s.trainingData{2};
             
             if s.linearModelLearning{mu}.basisAdaptation
                 sz = f.tensor.cores{mu}.sz;
@@ -114,33 +122,37 @@ classdef TensorTrainTensorLearning < TensorLearning
             fprintf('Ranks = [ %s ]',num2str(f.tensor.ranks));
         end
         
-        function f = canonicalCorrection(s,f,r,y,varargin)
+        function f = canonicalCorrection(s,f,r)
             % CANONICALCORRECTION - Rank-r canonical correction
             %
-            % f = CANONICALCORRECTION(s,f,r,y,x)
+            % f = CANONICALCORRECTION(s,f,r)
             % s: TensorTrainTensorLearning
             % f: TTTensor
             % r: 1-by-1 integer
-            % y: n-by-1 array of doubles
-            % x: n-by-s.order array of doubles
             
-            if nargin>=5 && ~isempty(varargin{1})
-                s.basesEval = eval(s.bases,varargin{1});
-                s.basesEval = cellfun(@full,s.basesEval,'uniformoutput',false);
-            end
             fx = timesMatrix(f,s.basesEval);
             fx = evalDiag(fx);
-            fadd = canonicalInitialization(s,r,y-fx);
+            
+            if isa(s.lossFunction,'SquareLossFunction')
+                R = s.trainingData{2} - fx;
+            elseif isa(s.lossFunction,'DensityL2LossFunction')
+                R = fx;
+            end
+            if ~iscell(s.trainingData)
+                s.trainingData = {s.trainingData};
+            end
+            s.trainingData{2} = R;
+            
+            fadd = canonicalInitialization(s,r);
             f = f + TTTensor(fadd);
         end
         
-        function f = canonicalInitialization(s,r,y)
+        function f = canonicalInitialization(s,r)
             % CANONICALINITIALIZATION - Rank-r canonical initialization
             %
-            % f = CANONICALINITIALIZATION(s,r,y)
+            % f = CANONICALINITIALIZATION(s,r)
             % s: TensorTrainTensorLearning
             % r: 1-by-1 integer
-            % y: n-by-1 array of doubles
             % f: TTTensor
             
             C = CanonicalTensorLearning(s.order,s.lossFunction);
@@ -152,14 +164,15 @@ classdef TensorTrainTensorLearning < TensorLearning
             C.alternatingMinimizationParameters = s.alternatingMinimizationParameters;
             C.bases = s.bases;
             C.basesEval = s.basesEval;
+            C.trainingData = s.trainingData;
             C.display = false;
             C.rankAdaptation = true;
             C.alternatingMinimizationParameters.display = false;
             C.initializationType = 'mean';
             C.alternatingMinimizationParameters.maxIterations = 10;
             C.rankAdaptationOptions.maxIterations = r;
-            C.orthonormalityWarningDisplay = false;
-            f = C.solve(y);
+            C.warnings = s.warnings;
+            f = C.solve();
             if isa(f,'FunctionalTensor')
                 f = f.tensor;
             end
@@ -187,11 +200,11 @@ classdef TensorTrainTensorLearning < TensorLearning
             slocal.initializationType = 'canonical';
         end
         
-        function [f,newRank,enrichedNodes,tensorForInitialization] = newRankSelection(s,f,y)
+        function [f,newRank,enrichedNodes,tensorForInitialization] = newRankSelection(s,f)
             if s.rankAdaptationOptions.rankOneCorrection
                 stemp = s;
                 stemp.initializationType = 'mean';
-                tensorforselection = canonicalCorrection(stemp,f.tensor,1,y);
+                tensorforselection = canonicalCorrection(stemp,f.tensor,1);
             else
                 tensorforselection = f.tensor;
             end
@@ -204,32 +217,40 @@ classdef TensorTrainTensorLearning < TensorLearning
             tensorForInitialization = f;
         end
         
-        function slocal = initialGuessNewRank(s,slocal,f,y,newRank)
+        function slocal = initialGuessNewRank(s,slocal,f,newRank)
             slocal.initializationType = 'initialguess';
-            slocal.initialGuess = enrichedEdgesToRanks(s,y,f.tensor,newRank);
+            slocal.initialGuess = enrichedEdgesToRanks(s,f.tensor,newRank);
         end
         
         function adaptationDisplay(s,f,enrichedNodes)
             fprintf('\tEnriched nodes: [ %s ]\n\tRanks = [ %s ]\n',num2str(enrichedNodes(:).'),num2str(f.tensor.ranks));
         end
         
-        function f = enrichedEdgesToRanks(s,y,f,newRanks)
+        function f = enrichedEdgesToRanks(s,f,newRanks)
             % ENRICHEDEDGESTORANKS - Enrichment of a subset of ranks of the tensor
             %
-            % f = ENRICHEDEDGESTORANKS(s,y,f,newRanks)
+            % f = ENRICHEDEDGESTORANKS(s,f,newRanks)
             % s: TensorTrainTensorLearning
-            % y: n-by-1 double
             % f: TensorTrain
             % newRanks: 1-by-length(f.ranks) integer
             
+            if ~isa(s.lossFunction, 'SquareLossFunction')
+                error('Method not implemented for this loss function.')
+            end
+            y = s.trainingData{2};
+            
             if s.linearModelLearning.basisAdaptation && isempty(s.basesAdaptationPath)
-                s.basesAdaptationPath = adaptationPath(s.bases);
+                if ismethod(s.bases, 'adaptationPath')
+                    s.basesAdaptationPath = adaptationPath(s.bases);
+                else
+                    warning('Cannot perform basis adaptation, disabling it.')
+                    s.linearModelLearning = cellfun(@(x) setfield(x, 'basisAdaptation', false), ...
+                        s.linearModelLearning, 'UniformOutput', false);
+                end
             end
             
-            H = s.basesEval;
-            H = cellfun(@full,H,'uniformoutput',false);
+            H = cellfun(@full,s.basesEval,'uniformoutput',false);
             
-            s.basesEval = H;
             enrichedDims = find(newRanks>f.ranks);
             fH = timesMatrix(f,H);
             for mu = enrichedDims
@@ -260,6 +281,8 @@ classdef TensorTrainTensorLearning < TensorLearning
                 end
                 C.alternatingMinimizationParameters = s.alternatingMinimizationParameters;
                 C.basesEval = {Hleft;Hright};
+                C.trainingData = {[], yres};
+                C.trainingData = s.trainingData;
                 C.tolerance.onError = eps;
                 C.display = false;
                 C.alternatingMinimizationParameters.display = false;
@@ -271,8 +294,8 @@ classdef TensorTrainTensorLearning < TensorLearning
                         repmat(s.basesAdaptationPath{mu+1},rright,1)};
                 end
                 C.rank = addedrank;
-                C.orthonormalityWarningDisplay = false;
-                [a,~] = C.solve(yres);
+                C.warnings = structfun(@(x) false, s.warnings, 'UniformOutput', false);
+                [a,~] = C.solve();
                 r = size(a.space.spaces{1},2);
                 leftcore = reshape(a.space.spaces{1},[nleft,rleft,r]);
                 leftcore = permute(leftcore,[2,1,3]);
@@ -365,12 +388,20 @@ classdef TensorTrainTensorLearning < TensorLearning
             [fPerm,newPerm] = optimizePermutationGlobal(f.tensor,s.treeAdaptationOptions.tolerance,s.treeAdaptationOptions.maxIterations);
             
             if ~all(newPerm==1:length(newPerm))
+                output.adaptedTree = true;
                 output.treeAdaptationIterations(i:i+1) = {output.treeAdaptationIterations{i-1}(newPerm)};
                 f.tensor = fPerm;
                 basesEvalPerm = s.basesEval(newPerm);
                 f.bases = basesEvalPerm;
                 s.basesEval = basesEvalPerm;
-                s.testErrorData{1} = s.testErrorData{1}(:,newPerm);
+                if s.testError
+                    if iscell(s.testData) && ~isempty(s.testData{1})
+                        s.testData{1} = s.testData{1}(:,newPerm);
+                    elseif ~iscell(s.testData) && ~isempty(s.testData)
+                        s.testData = s.testData(:,newPerm);
+                    end
+                    s.basesEvalTest = s.basesEvalTest(newPerm);
+                end
                 
                 if isa(s.bases,'FunctionalBases')
                     s.bases = permute(s.bases,newPerm);
@@ -379,34 +410,32 @@ classdef TensorTrainTensorLearning < TensorLearning
                     fprintf('\tTree adaptation:\n\t\tTermutation = [ %s ]\n',num2str(newPerm))
                     fprintf('\t\tRanks after permutation = [ %s ]\n',num2str(f.tensor.ranks))
                 end
+            else
+                output.adaptedTree = false;
             end
         end
         
         %% Inner rank adaptation solver
-        function [f,output] = solveInnerRankAdaptation(s,y,varargin)
+        function [f,output] = solveInnerRankAdaptation(s)
             % SOLVEINNERRANKADAPTATION - Solver for the learning problem with tensor formats using an inner rank adaptation algorithm
             %
-            % [f,output] = SOLVEINNERRANKADAPTATION(s,y,x)
+            % [f,output] = SOLVEINNERRANKADAPTATION(s)
             % s: TensorTrainTensorLearning
-            % y: n-by-1 double
-            % x: n-by-s.order double
             % f: FunctionalTensor
             % output: struct
             
             if s.linearModelLearning.basisAdaptation && isempty(s.basesAdaptationPath)
-                s.basesAdaptationPath = adaptationPath(s.bases);
+                if ismethod(s.bases, 'adaptationPath')
+                    s.basesAdaptationPath = adaptationPath(s.bases);
+                else
+                    warning('Cannot perform basis adaptation, disabling it.')
+                    s.linearModelLearning = cellfun(@(x) setfield(x, 'basisAdaptation', false), ...
+                        s.linearModelLearning, 'UniformOutput', false);
+                end
             end
+            H = s.basesEval;
             
-            if nargin>=3 && ~isempty(varargin{1})
-                x = varargin{1};
-                H = eval(s.bases,x);
-                s.basesEval = H;
-            else
-                H = s.basesEval(:);
-            end
-            H = cellfun(@full,H,'uniformoutput',false);
-            
-            [~,f] = initialize(s,y);
+            [~,f] = initialize(s);
             
             order = f.order;
             
@@ -453,9 +482,15 @@ classdef TensorTrainTensorLearning < TensorLearning
                             
                             lMLlocal = s.linearModelLearning;
                             if lMLlocal.basisAdaptation
-                                lMLlocal.basisAdaptationPath = createBasisAdaptationPathDMRG(s,s.basesAdaptationPath{mu},s.basesAdaptationPath{mu+1},rleft,rright);
+                                lMLlocal.basisAdaptationPath = ...
+                                    createBasisAdaptationPathDMRG(s,...
+                                    s.basesAdaptationPath{mu},...
+                                    s.basesAdaptationPath{mu+1},rleft,rright);
                             end
-                            [a,outputls] = lMLlocal.solve(y,A);
+                            lMLlocal.basis = [];
+                            lMLlocal.basisEval = A;
+                            lMLlocal.trainingData = s.trainingData;
+                            [a,outputls] = lMLlocal.solve();
                             
                             a = reshape(a,[nleft*rleft,nright*rright]);
                             T = Truncator('maxRank',s.rankAdaptationOptions.maxRank,'tolerance',s.tolerance);
@@ -473,18 +508,19 @@ classdef TensorTrainTensorLearning < TensorLearning
                             C.linearModelLearning = s.linearModelLearning;
                             C.alternatingMinimizationParameters = s.alternatingMinimizationParameters;
                             C.basesEval = {Hleft;Hright};
+                            C.trainingData = s.trainingData;
                             C.rank = s.rankAdaptationOptions.maxRank;
                             C.tolerance = structfun(@(x) x ./ sqrt(order), s.tolerance,'UniformOutput',false);
                             C.display = false;
                             C.alternatingMinimizationParameters.display = false;
                             C.algorithm = 'greedy';
-                            C.orthonormalityWarningDisplay = false;
+                            C.warnings = structfun(@(x) false, s.warnings, 'UniformOutput', false);
                             if C.linearModelLearning.basisAdaptation
                                 C.basesAdaptationPath = ...
                                     {repmat(s.basesAdaptationPath{mu},rleft,1),...
                                     repmat(s.basesAdaptationPath{mu+1},rright,1)};
                             end
-                            [a,outputgreedy] = C.solve(y);
+                            [a,outputgreedy] = C.solve();
                             output.outputInternalGreedy{k}{mu}=outputgreedy;
                             T = Truncator('tolerance',eps);
                             a = T.truncate(a);
@@ -499,12 +535,13 @@ classdef TensorTrainTensorLearning < TensorLearning
                             C.linearModelLearning = s.linearModelLearning;
                             C.alternatingMinimizationParameters = s.alternatingMinimizationParameters;
                             C.basesEval = {Hleft;Hright};
+                            C.trainingData = s.trainingData;
                             C.tolerance = structfun(@(x) x ./ sqrt(order), s.tolerance,'UniformOutput',false);
                             C.display = false;
                             C.alternatingMinimizationParameters.display = false;
                             C.alternatingMinimizationParameters.maxIterations = 20;
                             C.linearModelLearning.errorEstimation = true;
-                            C.orthonormalityWarningDisplay = false;
+                            C.warnings = structfun(@(x) false, s.warnings, 'UniformOutput', false);
                             storeerror = inf(1,s.rankAdaptationOptions.maxRank);
                             a = [];
                             for ra = 1:min(f.ranks(mu)+s.maxRankVariation,s.rankAdaptationOptions.maxRank)
@@ -519,7 +556,7 @@ classdef TensorTrainTensorLearning < TensorLearning
                                         {repmat(s.basesAdaptationPath{mu},rleft,1),...
                                         repmat(s.basesAdaptationPath{mu+1},rright,1)};
                                 end
-                                [atemp,outputlowrank] = C.solve(y,[]);
+                                [atemp,outputlowrank] = C.solve();
                                 C.initialGuess = atemp;
                                 storeerror(ra) = outputlowrank.error;
                                 if storeerror(ra)<=min(storeerror(1:ra))
@@ -583,7 +620,8 @@ classdef TensorTrainTensorLearning < TensorLearning
                 end
                 
                 if s.testError
-                    output.testError = s.lossFunction.testError(FunctionalTensor(f,s.bases),s.testErrorData);
+                    fEvalTest = FunctionalTensor(f,s.basesEvalTest);
+                    output.testError = s.lossFunction.testError(fEvalTest(),s.testData);
                     output.testErrorIterations(k) = output.testError;
                     if s.alternatingMinimizationParameters.display
                         fprintf(' test error = %.2d\n',output.testError)

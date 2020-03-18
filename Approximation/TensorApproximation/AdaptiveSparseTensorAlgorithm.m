@@ -98,7 +98,7 @@ classdef AdaptiveSparseTensorAlgorithm
             % P is the basis dimension (number of basis functions)
             
             if ~isa(fun,'Function')
-                error('must provide a Function')
+                error('Must provide a Function.')
             end
             
             if isa(bases,'FullTensorProductFunctionalBasis')
@@ -563,8 +563,10 @@ classdef AdaptiveSparseTensorAlgorithm
                 else
                     xb = transfer(rv,rvb,x);
                 end
-                Atest = Htest.eval(xb);
-                [a,~] = ls.solve(yls,Atest);
+                ls.basis = [];
+                ls.basisEval = Htest.eval(xb);
+                ls.trainingData = {[], yls};
+                [a,~] = ls.solve();
                 [~,loc] = ismember(Iadd.array,Itest.array,'rows');
                 a_marg = a(loc,:);
                 norm_a_marg = sqrt(sum(a_marg.^2,2));
@@ -581,7 +583,10 @@ classdef AdaptiveSparseTensorAlgorithm
                 I = I.addIndices(Iadd);
                 H = SparseTensorProductFunctionalBasis(bases,I);
                 A = H.eval(xb);
-                [a,output] = ls.solve(yls,A);
+                ls.basis = [];
+                ls.basisEval = A;
+                ls.trainingData = {[], yls};
+                [a,output] = ls.solve();
                 a = reshape(a,[size(a,1) sz(2:end)]);
                 f = FunctionalBasisArray(a,H,sz(2:end));
                 err_stagn = norm(output.error-err)/norm(output.error);
@@ -616,9 +621,11 @@ classdef AdaptiveSparseTensorAlgorithm
                 end
                 Aadd = H.eval(xbadd);
                 A = [A;Aadd];
+                ls.basis = [];
+                ls.basisEval = A;
                 sz = size(y);
-                yls = reshape(y,[sz(1) prod(sz(2:end))]);
-                [a,output] = ls.solve(yls,A);
+                ls.trainingData = {[], reshape(y,[sz(1) prod(sz(2:end))])};
+                [a,output] = ls.solve();
                 a = reshape(a,[size(a,1) sz(2:end)]);
                 f = FunctionalBasisArray(a,H,sz(2:end));
                 err_stagn = norm(output.error-err)/norm(output.error);
@@ -653,10 +660,13 @@ classdef AdaptiveSparseTensorAlgorithm
                 end
                 Aadd = cellfun(@(basis,x) basis.eval(x),H,xbadd,'UniformOutput',false);
                 A = cellfun(@(x,xadd) [x;xadd],A,Aadd,'UniformOutput',false);
+                ls.basis = [];
                 parfor i=1:m
                     sz = size(y{i});
-                    yls = reshape(y{i},[sz(1) prod(sz(2:end))]);
-                    [a,output] = ls.solve(yls,A{i});
+                    lsloc = ls
+                    lsloc.trainingData = {[], reshape(y{i},[sz(1) prod(sz(2:end))])};
+                    lsloc.basisEval = A{i};
+                    [a,output] = lsloc.solve();
                     a = reshape(a,[size(a,1) sz(2:end)]);
                     f{i} = FunctionalBasisArray(a,H{i},sz(2:end));
                     err_stagn(i) = norm(output.error-err{i})/norm(output.error);

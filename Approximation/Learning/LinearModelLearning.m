@@ -20,6 +20,9 @@
 classdef LinearModelLearning < Learning
     
     properties
+        basis
+        basisEval
+        basisEvalTest
         regularization = false
         regularizationType = 'l1'
         regularizationOptions = struct('lambda',0)
@@ -31,6 +34,41 @@ classdef LinearModelLearning < Learning
     methods
         function s = LinearModelLearning(loss)
             s@Learning(loss);
+        end
+        
+        function s = initialize(s)
+            % If the test error cannot be computed, it is disabled
+            if s.testError && isempty(s.basis) && isempty(s.basisEvalTest)
+                warning('The test error cannot be computed.')
+                s.testError = false;
+            end
+            
+            % Bases evaluation
+            if ismethod(s.basis, 'eval')
+                if ~isempty(s.trainingData) && isempty(s.basisEval)
+                    if iscell(s.trainingData) && ~isempty(s.trainingData{1})
+                        s.basisEval = s.basis.eval(s.trainingData{1});
+                    elseif ~iscell(s.trainingData) && ~isempty(s.trainingData)
+                        s.basisEval = s.basis.eval(s.trainingData);
+                    else
+                        error('Must provide input training data.')
+                    end
+                end
+                
+                if s.testError && ~isempty(s.testData) && isempty(s.basisEvalTest)
+                    if iscell(s.testData) && ~isempty(s.testData{1})
+                        s.basisEvalTest = s.basis.eval(s.testData{1});
+                    elseif ~iscell(s.testData) && ~isempty(s.testData)
+                        s.basisEvalTest = s.basis.eval(s.testData);
+                    else
+                        error('Must provide input test data.')
+                    end
+                end
+            end
+            s.basisEval = full(s.basisEval);
+            if ~isempty(s.basisEvalTest)
+                s.basisEvalTest = full(s.basisEvalTest);
+            end
         end
     end
 end
