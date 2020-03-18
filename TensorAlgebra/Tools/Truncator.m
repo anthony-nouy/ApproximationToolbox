@@ -22,6 +22,8 @@ classdef Truncator
     properties
         tolerance
         maxRank
+        thresholdingParameter
+        thresholdingType = 'hard'
     end
     
     properties (Hidden)
@@ -32,7 +34,7 @@ classdef Truncator
         function t = Truncator(varargin)
             p = ImprovedInputParser();
             addParamValue(p,'tolerance',1e-8);
-            addParamValue(p,'maxRank',50);
+            addParamValue(p,'maxRank',inf);
             parse(p,varargin{:});
             t = passMatchedArgsToProperties(p,t);
         end
@@ -112,6 +114,7 @@ classdef Truncator
             end
             [L,D,R]=svd(x,'econ');
             d = diag(D);
+            
             if p==Inf
                 err = d/max(d);
             else
@@ -132,11 +135,21 @@ classdef Truncator
             %    warning('maxRank reached, tolerance not achieved')
             %end
             m = min(m,t.maxRank);
+            if ~isempty(t.thresholdingParameter) && t.thresholdingParameter~=0
+                switch lower(t.thresholdingType)
+                    case 'soft'
+                        d = d - t.thresholdingParameter;
+                        m = min(m,find(d>=0,1,'last'));
+                    case 'hard'
+                        m = min(m,find(d>=t.thresholdingParameter,1,'last'));
+                end
+            end
+            
             L = L(:,1:m);
-            D = diag(D(1:m,1:m));
+            d = d(1:m);
             R = R(:,1:m);
             ys = TSpaceVectors({L;R});
-            y = CanonicalTensor(ys,D);
+            y = CanonicalTensor(ys,d);
         end
         
         function y = svd(t,x)
@@ -165,11 +178,16 @@ classdef Truncator
             if isa(x,'double')
                 x = FullTensor(x);
             end
+                                         
+            d = x.order;                  
             
-            d = x.order;
             if d == 2
-                y = svd(x);
+                y = t.svd(x);
             else
+                maxRank=t.maxRank;
+                if numel(maxRank)==1
+                    maxRank = repmat(maxRank,1,d);
+                end
                 localTolerance = t.tolerance / sqrt(d);
                 if isa(x,'FullTensor')
                     sz = x.sz;
@@ -179,6 +197,7 @@ classdef Truncator
                         order = [mu,1:mu-1,mu+1:d];
                         y = permute(x.data,order);
                         y = reshape(double(y),sz(mu),prod(sz([1:mu-1,mu+1:d])));
+                        t.maxRank = maxRank(mu);
                         A{mu} = t.truncSvd(y,localTolerance);
                         A{mu} = A{mu}.space.spaces{1};
                         r(mu) = size(A{mu},2);
@@ -225,7 +244,7 @@ classdef Truncator
                 maxRank=t.maxRank;
                 if numel(maxRank)==1
                     maxRank = repmat(maxRank,1,tree.nbNodes);
-                    maxRank(1)=1;
+                    maxRank(tree.root)=1;
                 end
                 
                 localTolerance = t.tolerance/sqrt(nnz(isActiveNode)-1);
@@ -249,6 +268,7 @@ classdef Truncator
                             
                             Z = permute(x,[rep,repc]);
                             Z = reshape(Z,[prod(szx(rep)),prod(szx(repc))]);
+                            t.maxRank = maxRank(nod);
                             Ztr = t.truncSvd(Z.data,localTolerance);
                             C{nod} = Ztr.space.spaces{1};
                             ranks(nod) = size(C{nod},2);
@@ -268,12 +288,15 @@ classdef Truncator
                 C{tree.root} = permute(x,rep);
                 y = TreeBasedTensor(C,tree);
             elseif isa(x,'TreeBasedTensor')
+                if nargin>2 
+                    warning('The provided DimensionTree is taken taken into account when x is a tree-based tensor')
+                end
                 maxRank=t.maxRank;
                 if numel(maxRank)==1
                     maxRank = repmat(maxRank,1,x.tree.nbNodes);
-                    maxRank(1) = 1;
+                    maxRank(x.tree.root) = 1;
                 end
-                
+
                 switch t.hsvdType
                     case 1
                         x = orth(x);
@@ -449,6 +472,9 @@ classdef Truncator
                 d = x.order;
                 if nargin == 2
                     localTolerance = t.tolerance/sqrt(2*d-1);
+                end
+                if numel(t.maxRank)>1
+                    error('not implemented')
                 end
                 y.core = t.ttsvd(y.core);
                 for mu = 1:d
