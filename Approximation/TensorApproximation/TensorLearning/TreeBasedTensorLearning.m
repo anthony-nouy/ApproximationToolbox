@@ -104,9 +104,9 @@ classdef TreeBasedTensorLearning < TensorLearning
         end
         
         function [s,f] = preProcessing(s,f)
-            if length(s.linearModelLearning) ~= s.tree.nbNodes
-                c = cell(1,s.tree.nbNodes);
-                c(s.isActiveNode) = s.linearModelLearning;
+            if length(s.linearModelLearning) ~= f.tensor.tree.nbNodes
+                c = cell(1,f.tensor.tree.nbNodes);
+                c(f.tensor.isActiveNode) = s.linearModelLearning;
                 s.linearModelLearning = c;
             end
         end
@@ -120,16 +120,19 @@ classdef TreeBasedTensorLearning < TensorLearning
         end
         
         function [s,A,b,f] = prepareAlternatingMinimizationSystem(s,f,mu)
+            t = f.tensor.tree;
             if s.linearModelLearning{mu}.basisAdaptation
-                if ismember(mu,s.tree.internalNodes)
+                if ismember(mu,t.internalNodes)
                     if s.linearModelLearningParameters.basisAdaptationInternalNodes
                         tr = Truncator('tolerance',eps,'MaxRank',max(f.tensor.ranks));
                         f.tensor = tr.hsvd(f.tensor);
-                    else
+                    elseif all(f.tensor.isActiveNode(nonzeros(t.children(:,mu))))
                         s.linearModelLearning{mu}.basisAdaptation = false;
                     end
                 end
                 f.tensor = orthAtNode(f.tensor,mu);
+                s.tree = t;
+                s.isActiveNode = f.tensor.isActiveNode;
                 s.linearModelLearning{mu}.basisAdaptationPath = createBasisAdaptationPath(s,f.tensor.ranks,mu);
             else
                 f.tensor = orthAtNode(f.tensor,mu);
@@ -148,11 +151,11 @@ classdef TreeBasedTensorLearning < TensorLearning
                         y = y.tensor;
                     end
                     y = orth(y);
-                    if s.tree.isLeaf(mu)
+                    if t.isLeaf(mu)
                         a = y;
-                        a.tensors(~s.tree.isLeaf) = cellfun(@(v,c) FullTensor(v.data.*c.data,v.order,v.sz),y.tensors(~s.tree.isLeaf),f.tensor.tensors(~s.tree.isLeaf),'UniformOutput',false);
-                        I = setdiff(1:s.order,find(s.tree.dim2ind == mu));
-                        C = cellfun(@(x) x.data, f.tensor.tensors(s.tree.dim2ind),'UniformOutput',false);
+                        a.tensors(~t.isLeaf) = cellfun(@(v,c) FullTensor(v.data.*c.data,v.order,v.sz),y.tensors(~t.isLeaf),f.tensor.tensors(~t.isLeaf),'UniformOutput',false);
+                        I = setdiff(1:s.order,find(t.dim2ind == mu));
+                        C = cellfun(@(x) x.data, f.tensor.tensors(t.dim2ind),'UniformOutput',false);
                         b = timesVector(a,C(I),I);
                         b = b.tensors{1}.data;
                     else
@@ -313,22 +316,26 @@ classdef TreeBasedTensorLearning < TensorLearning
                     error('Basis adaptation for internal nodes is not implemented.')
                 else
                     ch = nonzeros(t.children(:,alpha));
-                    if all(~s.isActiveNode(ch))
-                        [~,J] = find(t.dim2ind == ch);
-                        palpha = s.basesAdaptationPath(J);
-                        r = r(alpha);
-                        p = permute(palpha{1},[3,1,4,2]);
-                        p = repmat(p,[1,1,r,2]);
-                        p = reshape(p,[size(p,2)*r,size(p,4)]);
-                        for i = 2:length(palpha)
-                            p = kron(p,palpha{i});
-                        end
-                    else
+                    if all(s.isActiveNode(ch))
                         cha = ch(s.isActiveNode(ch));
                         chna = setdiff(ch,cha);
                         [~,J] = find(t.dim2ind == chna);
                         szna = cellfun(@(x) size(x,1),s.basesAdaptationPath(J));
                         p = true(prod([r([alpha ; cha]), szna(:).']),1); % No working set
+                    else
+                        chA = ch(s.isActiveNode(ch));
+                        chNa = ch(~s.isActiveNode(ch));
+                        [~,J] = find(t.dim2ind == chNa);
+                        palpha = cell(1, length(ch));
+                        palpha(t.childNumber(chNa)) = s.basesAdaptationPath(J);
+                        palpha(t.childNumber(chA)) = arrayfun(@(x) ones(x,1), r(chA), 'UniformOutput', false);
+                        ralpha = r(alpha);
+                        p = permute(palpha{end},[3,1,4,2]);
+                        p = reshape(p,[size(p,2)*1,size(p,4)]);
+                        for i = length(palpha)-1:-1:1
+                            p = kron(p,palpha{i});
+                        end
+                        p = repmat(p,ralpha,1);
                     end
                 end
             end
@@ -340,11 +347,6 @@ classdef TreeBasedTensorLearning < TensorLearning
             slocal.rankAdaptation = false;
             slocal.storeIterates = false;
             slocal.testError = false;
-            
-            if any(~s.isActiveNode) && s.treeAdaptation
-                warning('Tree adaptation is not compatible with non active nodes, disabling it.')
-                slocal.treeAdaptation = false;
-            end
         end
         
         function [f, newRank, enrichedNodes, tensorForSelection] = newRankSelection(s,f)

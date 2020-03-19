@@ -70,5 +70,18 @@ classdef Learning
                     l = LinearModelLearningDensityL2;
             end
         end
+        
+        function r = riskEstimation(s,v,z,varargin)
+            % RISKESTIMATION - Estimation of the risk associated with the function v using a dataset z
+            % 
+            % r = RISKESTIMATION(s,v,z,varargin)
+            % s: Learning
+            % v: Function or n-by-1 double of evaluations of the function on the dataset used to estimate the risk
+            % z: cell or double containing the dataset used to estimate the risk
+            % varargin: additional inputs
+            % r: 1-by-1 double
+            
+            r = s.lossFunction.riskEstimation(v,z,varargin{:});
+        end
     end
 end

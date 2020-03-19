@@ -235,6 +235,8 @@ classdef TreeBasedTensor < AlgebraicTensor
             
             t = x.tree;
             r = x.ranks;
+            r(~x.isActiveNode) = x.sz(~x.isActiveNode(t.dim2ind));
+            
             dT = zeros(1,t.nbNodes);
             for beta = 1:t.nbNodes
                 if ~(ismember(beta,t.ascendants(alpha)) || ...
@@ -325,6 +327,7 @@ classdef TreeBasedTensor < AlgebraicTensor
             t = x0.tree;
             sigmaStar = 1:x.order;
             r = x0.ranks;
+            r(~x0.isActiveNode) = x0.sz(~x0.isActiveNode(t.dim2ind));
             
             ind = find(t.isLeaf);
             dT = zeros(t.nbNodes);
@@ -408,10 +411,7 @@ classdef TreeBasedTensor < AlgebraicTensor
             if all(perm == 1:t.nbNodes)
                 return
             end
-            
-            if ~all(x.isActiveNode)
-                error('Not implemented for inactive nodes.')
-            end
+
             if nargin < 3 || isempty(tol)
                 tol = 1e-15;
             end
@@ -494,7 +494,7 @@ classdef TreeBasedTensor < AlgebraicTensor
                     [~,perm] = ismember(nonzeros(t.children(:,gamma)),S);
                     if gamma~= t.root, perm = [perm ; C{gamma}.order]; end
                     C{gamma} = permute(C{gamma},perm);
-                    
+                                        
                     x = TreeBasedTensor(C,t,x.isActiveNode);
                     
                     % Ensure that the tensor x is rank admissible
@@ -514,9 +514,6 @@ classdef TreeBasedTensor < AlgebraicTensor
             % perm: 1-by-d double (permutation of (1,...,d))
             % tol: double (relative precision for SVD truncations)
             
-            if ~all(x.activeNodes == 1:x.tree.nbNodes)
-                error('Method not implemented for inactive nodes.')
-            end
             if nargin < 3 || isempty(tol)
                 tol = 1e-15;
             end

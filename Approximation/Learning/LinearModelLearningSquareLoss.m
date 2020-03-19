@@ -299,9 +299,9 @@ classdef LinearModelLearningSquareLoss < LinearModelLearning
             
             secondMoment = moment(y,2,1)+mean(y,1).^2;
             
-            I = cellfun(@nnz,num2cell(pattern,1)) > size(A,1);
-            err(:,I) = Inf;
-            delta(I) = {Inf(size(A,1),size(y,2))};
+            I = sum(pattern~=0,1) > size(A,1);
+            err(:,I) = [];
+            delta(I) = [];
             pattern(:,I) = [];
             solpath(:,I) = [];
             
