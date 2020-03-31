@@ -21,14 +21,17 @@ classdef UserDefinedFunctionalBasis < FunctionalBasis
     
     properties
         handleFun
+        inputDimension = 1
     end
     
     methods
-        function f = UserDefinedFunctionalBasis(hFun,measure)
+        function f = UserDefinedFunctionalBasis(hFun,measure, inputDim)
             % f = UserDefinedFunctionalBasis(hFun,measure)
             % hFun: cell array of size n-by-1 containing n functions
             % measure: Measure (can be a RandomVector or RandomVariable for
             % defining a random generator and an expectation)
+            % inputDim: integer indicating the dimension of the domain of 
+            % the functions in hFun
             %
             % The basis is a not L2-orthonormal a priori, hence the
             % isOrthonormal property remains at its default value: false
@@ -41,6 +44,11 @@ classdef UserDefinedFunctionalBasis < FunctionalBasis
                 case 2
                     f.handleFun = hFun(:);
                     f.measure = measure;
+                    f.inputDimension = numel(measure);
+                case 3
+                    f.handleFun = hFun(:);
+                    f.measure = measure;
+                    f.inputDimension = inputDim;
             end
         end
         
@@ -58,7 +66,7 @@ classdef UserDefinedFunctionalBasis < FunctionalBasis
         end
         
         function n = ndims(f)
-            n = numel(f.measure);
+            n = f.inputDimension;
         end
         
         function N = cardinal(f)

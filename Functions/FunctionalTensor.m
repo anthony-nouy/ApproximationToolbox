@@ -431,8 +431,15 @@ classdef FunctionalTensor < Function
                 % compute the inverse permutation.
                 ch = nonzeros(t.children(:,mu));
                 [~,I] = sort([ch(fH.isActiveNode(ch)) ; ch(~fH.isActiveNode(ch))]);
-                J = []; if mu ~= t.root, J = g.order; end
-                g = permute(g,[1 ; I+1 ; J]);
+                J = []; 
+                if mu ~= t.root 
+                    J = fH.tensors{mu}.order+1; 
+                end
+                K = []; 
+                if mu ~= t.root && f.tensor.ranks(t.root) > 1
+                    K = g.order; 
+                end
+                g = permute(g,[1 ; I+1 ; J ; K]);
             end
         end
         

@@ -22,6 +22,7 @@ classdef LinearModelLearningSquareLoss < LinearModelLearning
     properties
         linearSolver = 'qr'
         weights = [];
+        sharedCoefficients = true
     end
     
     methods
@@ -38,6 +39,7 @@ classdef LinearModelLearningSquareLoss < LinearModelLearning
             % s.testError: logical indicating if a test error is evaluated 
             % s.testData: test dataset
             % s.basisEvalTest: evaluations of the basis on the test dataset
+            % s.sharedCoefficients: when approximating a vector-valued function, indicates if the coefficients of the approximation are common to all the outputs, true by default
             % s.regularization: regularization (true or false), false by default
             % s.regularizationType: type of regularization ('l0', 'l1' or 'l2'), 'l1' by default
             % s.regularizationOptions: parameters for regularization, struct('lambda',0) by default
@@ -52,6 +54,14 @@ classdef LinearModelLearningSquareLoss < LinearModelLearning
             % s.basisAdaptation: basis adaptation (true or false), false by default
             % s.basisAdaptationPath: regularization path for basis adaptation
             % s.options: other options, struct() by default
+            %
+            % When approximating a vector-valued function, setting 
+            % s.sharedCoefficients to false will independently compute 
+            % size(y,2) sets of coefficients, whereas setting it to true
+            % will compute one set of coefficients shared across all the 
+            % outputs. In that case, s.basisEval should be a (n-by-N-by-D)
+            % double, with n the size of the dataset, N the number of basis
+            % functions and D the number of outputs.
             
             s@LinearModelLearning(SquareLossFunction)
             
@@ -73,6 +83,16 @@ classdef LinearModelLearningSquareLoss < LinearModelLearning
             A = s.basisEval;
             y = s.trainingData{2};
             
+            if s.sharedCoefficients
+                if size(A, 3) ~= size(y,2)
+                    error('size(A, 3) should be equal to size(y,2).')
+                end
+                A = permute(A, [1,3,2]);
+                A = reshape(A, [], size(A, 3));
+                y = y(:);
+                s.basisEval = A;
+                s.trainingData{2} = y;
+            end
             n = size(y,2);
             
             if ~isempty(s.weights)
@@ -489,6 +509,9 @@ classdef LinearModelLearningSquareLoss < LinearModelLearning
             
             % Compute corrected relative cross-validation error to reduce the sensitivity of error estimate to overfitting
             % (non-corrected cross-validation error estimate underpredicts the error in L^2-norm (generalization error))
+            if strcmpi(linearSolvertype, 'qr') && rcond(rA) < eps
+                s.errorEstimationOptions.correction = false;
+            end
             if s.errorEstimationOptions.correction
                 if N~=P
                     % corr = (N-1)/(N-P-1); % = (1-1/N)*(1-P/N-1/N)^(-1) % Adjusted Empirical Error (AEE) -> only accurate when N >> P (corr ~ 1+P/N when N->Inf)

@@ -57,6 +57,8 @@ classdef TensorLearning < Learning
         storeIterates = true
         % RANK - 1-by-1 or 1-by-order integer
         rank = 1
+        % OUTPUTDIMENSION - 1-by-1 integer indicating the number of outputs of the function to approximate
+        outputDimension = 1
     end
     
     properties (Hidden)
@@ -87,6 +89,17 @@ classdef TensorLearning < Learning
             % s: TensorLearning
             % f: FunctionalTensor
             % output: structure
+            
+            % If possible, deduce from trainingData the output dimension
+            if iscell(s.trainingData) && length(s.trainingData) == 2 && ...
+                    ~isempty(s.trainingData{2}) && isa(s.trainingData{2}, 'double')
+                s.outputDimension = size(s.trainingData{2}, 2);
+            end
+            if s.outputDimension > 1 && (~isa(s, 'TreeBasedTensorLearning') || ...
+                    ~isa(s.lossFunction, 'SquareLossFunction'))
+                error(['Solver not implemented for vector-valued functions approximation, ', ...
+                    'use TreeBasedTensorLearning with a SquareLossFunction instead.'])
+            end
             
             if s.warnings.orthonormalityWarningDisplay && (isempty(s.bases) || ...
                     (~isempty(s.bases) && ~all(cellfun(@(x) x.isOrthonormal,s.bases.bases))))
@@ -220,7 +233,7 @@ classdef TensorLearning < Learning
                     s.linearModelLearning{alpha}.basisEval = A;
                     [C, outputLML] = s.linearModelLearning{alpha}.solve();
                     
-                    if isempty(C) || ~nnz(C) || ~all(isfinite(C)) || any(isnan(C))
+                    if isempty(C(:)) || ~nnz(C(:)) || ~all(isfinite(C(:))) || any(isnan(C(:)))
                         warning('Empty, zero or NaN solution, returning to the previous iteration.')
                         output.flag = -2;
                         output.error = Inf;
@@ -419,8 +432,11 @@ classdef TensorLearning < Learning
                 end
                 
                 if ~s.treeAdaptation || ~adaptedTree
-                    if i>1 && ~treeAdapt && stagnationCriterion(s,FunctionalTensor(f.tensor,s.basesEval),FunctionalTensor(fOld.tensor,s.basesEval)) < s.tolerance.onStagnation
-                        break
+                    if i>1 && ~treeAdapt
+                        stagnation = stagnationCriterion(s,FunctionalTensor(f.tensor,s.basesEval),FunctionalTensor(fOld.tensor,s.basesEval));
+                        if (stagnation < s.tolerance.onStagnation || isnan(stagnation))
+                            break
+                        end
                     end
                     treeAdapt = false;
                     [f,newRank,enrichedNodes,tensorForInitialization] = newRankSelection(s,f);

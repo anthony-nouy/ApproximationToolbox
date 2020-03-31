@@ -32,10 +32,10 @@ classdef SquareLossFunction < LossFunction
             end
             y = z{2};
             
-            l = (yPred-y).^2;
+            l = sum((yPred-y).^2, 2);
             
             if nargout == 2
-                lRef = y.^2;
+                lRef = sum(y.^2, 2);
             end
         end
         

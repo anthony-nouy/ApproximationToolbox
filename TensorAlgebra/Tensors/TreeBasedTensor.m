@@ -91,11 +91,8 @@ classdef TreeBasedTensor < AlgebraicTensor
             % r: 1-by-n double of integers, with n the number of nodes of x.tree
             % ok: logical
             % c: 1-by-n cell of logical, with n the number of nodes of x.tree, each cell giving the admissibiliy of the children ranks
-            %
-            % Note: could be modified to take into account the ranks of inactive nodes
             
             T = x.tree;
-            nodes = fastIntersect(T.internalNodes,x.activeNodes);
             c = cell(1,T.nbNodes);
             
             if nargin == 1
@@ -104,23 +101,22 @@ classdef TreeBasedTensor < AlgebraicTensor
                 r = varargin{1};
             end
             
-            if r(T.parent==0)~=1
+            if any(r(x.nonActiveNodes) ~= 0)
                 ok = false;
-                warning('The root rank should be 1.')
+                warning('Inactive nodes must have an alpha-rank equal to 0.')
                 return
-            else
-                ok=true;
             end
             
-            for i = nodes
+            r(fastIntersect(T.dim2ind, x.nonActiveNodes)) = x.sz(x.nonActiveDims);
+            
+            ok = true;
+            for i = fastIntersect(T.internalNodes,x.activeNodes)
                 ch = nonzeros(T.children(:,i));
-                
-                if all(x.isActiveNode(ch))
-                    c{i}(1) = (r(i) <= prod(r(ch)));
-                    for mu=1:length(ch)
-                        nomu = fastSetdiff(1:length(ch),mu);
-                        c{i}(mu+1) = (r(ch(mu)) <= r(i)*prod(r(ch(nomu))));
-                    end
+                c{i}(1) = (r(i) <= prod(r(ch)));
+                activeCh = fastIntersect(ch,x.activeNodes);
+                for nod = activeCh(:).'
+                    chNoNod = fastSetdiff(ch,nod);
+                    c{i} = [c{i}, r(nod) <= r(i)*prod(r(chNoNod))];
                 end
                 ok = ok & all(c{i});
             end
@@ -154,7 +150,11 @@ classdef TreeBasedTensor < AlgebraicTensor
                 elseif ~t.isLeaf(nod)
                     ch = nonzeros(t.children(:,nod));
                     nonActiveLeafChildren = t.isLeaf(ch) & ~x.isActiveNode(ch);
-                    if any(nonActiveLeafChildren)
+                    if nod == t.root
+                        ind = 1:length(ch);
+                        ind(nonActiveLeafChildren) = [];
+                        x.tensors{nod} = cat(x.tensors{nod},y.tensors{nod}, ind);
+                    elseif any(nonActiveLeafChildren)
                         otherDims = 1:x.tensors{nod}.order;
                         otherDims(nonActiveLeafChildren) = [];
                         x.tensors{nod} = cat(x.tensors{nod},y.tensors{nod},otherDims);
@@ -219,6 +219,9 @@ classdef TreeBasedTensor < AlgebraicTensor
                     t.dims{nod} = dims;
                     
                 end
+            end
+            if x.ranks(t.root) > 1
+                dims = [dims,x.order+1];
             end
             xf = xf{t.root};
             if xf.order>1
@@ -441,7 +444,7 @@ classdef TreeBasedTensor < AlgebraicTensor
                     x = orthAtNode(x,gamma);
                     C = x.tensors;
                     L = max(t.level(subnod));
-                    if t.root == gamma
+                    if t.root == gamma && x.ranks(t.root) == 1
                         S = nonzeros(t.children(:,gamma));
                     else
                         S = [nonzeros(t.children(:,gamma)) ; gamma];
@@ -492,7 +495,9 @@ classdef TreeBasedTensor < AlgebraicTensor
                     end
                     
                     [~,perm] = ismember(nonzeros(t.children(:,gamma)),S);
-                    if gamma~= t.root, perm = [perm ; C{gamma}.order]; end
+                    if gamma~= t.root || x.ranks(t.root) > 1
+                        perm = [perm ; C{gamma}.order]; 
+                    end
                     C{gamma} = permute(C{gamma},perm);
                                         
                     x = TreeBasedTensor(C,t,x.isActiveNode);
@@ -565,7 +570,7 @@ classdef TreeBasedTensor < AlgebraicTensor
                         x = orthAtNode(x,gamma);
                         C = x.tensors;
                         L = max(t.level(subnod));
-                        if t.root == gamma
+                        if t.root == gamma && x.ranks(t.root) == 1
                             S = nonzeros(t.children(:,gamma));
                         else
                             S = [nonzeros(t.children(:,gamma)) ; gamma];
@@ -609,7 +614,9 @@ classdef TreeBasedTensor < AlgebraicTensor
                         end
                         
                         [~,perm] = ismember(nonzeros(t.children(:,gamma)),S);
-                        if gamma~= t.root, perm = [perm ; C{gamma}.order]; end
+                        if gamma~= t.root || x.ranks(t.root) > 1
+                            perm = [perm ; C{gamma}.order]; 
+                        end
                         C{gamma} = permute(C{gamma},perm);
                     end
                     t.dim2ind(dim) = t.dim2ind(flip(dim));
@@ -1171,7 +1178,10 @@ classdef TreeBasedTensor < AlgebraicTensor
                 L = U*diag(S);
                 
                 rep = rank(L);
-                if rep ~= size(G,1)
+                if rep == 0
+                    warning('Zero alpha-rank, returning the original tensor.')
+                    return
+                elseif rep ~= size(G,1)
                     L(:,rep+1:end) = [];
                     S = pinv(L);
                 else
@@ -1213,7 +1223,7 @@ classdef TreeBasedTensor < AlgebraicTensor
                     nod = nodLvl(i);
                     ch = t.children(:,nod);
                     ch = ch(1:find(ch,1,'last'));
-                    if t.parent(nod) ~= 0
+                    if nod ~= t.root || x.ranks(t.root) > 1
                         ord = 1:x.tensors{nod}.order-1;
                     else
                         ord = 1:x.tensors{nod}.order;
@@ -1547,9 +1557,13 @@ classdef TreeBasedTensor < AlgebraicTensor
                 nodesLabels = cellfun(nodesLabels,x.tensors,'uniformoutput',false);
             end
             
-            plotNodes(x.tree,x.activeNodes(),'ok','markerfacecolor','k','markersize',7)
+            if ~isempty(x.activeNodes())
+                plotNodes(x.tree,x.activeNodes(),'ok','markerfacecolor','k','markersize',7)
+            end
             hold on
-            plotNodes(x.tree,x.nonActiveNodes(),'ok','markerfacecolor','w','markersize',7)
+            if ~isempty(x.nonActiveNodes())
+                plotNodes(x.tree,x.nonActiveNodes(),'ok','markerfacecolor','w','markersize',7)
+            end
             plotEdges(x.tree)
             plotLabelsAtNodes(x.tree,nodesLabels)
             hold off
@@ -1745,6 +1759,9 @@ classdef TreeBasedTensor < AlgebraicTensor
                     end
                     if pa ~= t.root
                         w{nod} = timesTensorEvalDiag(w{pa},w{nod},2,3,1,1);
+                        if w{nod}.order == 3
+                            w{nod} = permute(w{nod}, [1,3,2]);
+                        end
                     end
                 end
             end

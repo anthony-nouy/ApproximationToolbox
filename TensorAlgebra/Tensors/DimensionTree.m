@@ -398,24 +398,18 @@ classdef DimensionTree
         end
         
         function nod = nodeWithDims(T,dims)
-            % Returns the index of the node with given set of dimensions
+            % NODEWITHDIMS - Return the index of the node containing the given set of dimensions.
             %
-            % nod = nodeWithDims(T,dims)
-            % returns the index of the node corresponding to dimensions dims or an empty array if no node contains these dimensions
+            % Returns the index of the node corresponding to dimensions dims or an empty array if no node corresponds to these dimensions.
+            %
+            % nod = NODEWITHDIMS(T,dims)
+            % 
             % T: DimensionTree
             % dims: array
-            
-            nod = T.dim2ind(dims);
-            
-            while length(nod)>1
-                nod = unique(T.parent(nod));
-                nod(nod==0)=[];
-                cdims = unique([T.dims{nod}]);
-                I = ismember(cdims,dims);
-                if ~all(I)
-                    nod=[];
-                end
-            end
+            % nod: double
+
+            dims = sort(dims);
+            nod = find(cellfun(@(x) isequal(x,dims),T.dims));
         end
     end
     

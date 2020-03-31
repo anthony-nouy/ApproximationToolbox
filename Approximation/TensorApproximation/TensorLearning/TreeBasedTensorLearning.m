@@ -63,9 +63,10 @@ classdef TreeBasedTensorLearning < TensorLearning
             
             if numel(s.rank) == 1 || numel(s.rank) == s.order
                 r = zeros(1,s.tree.nbNodes);
-                r(logical(s.isActiveNode)) = s.rank; r(s.tree.root) = 1;
+                r(logical(s.isActiveNode)) = s.rank;     
                 s.rank = r;
             end
+            s.rank(s.tree.root) = s.outputDimension;
             
             sz = cellfun(@(x) size(x,2),s.basesEval);
             switch lower(s.initializationType)
@@ -76,12 +77,18 @@ classdef TreeBasedTensorLearning < TensorLearning
                 case 'initialguess'
                     f = s.initialGuess;
                 case 'canonical'
-                    f = canonicalInitialization(s,max(s.rank));
-                    if ~all(f.ranks == s.rank)
-                        tr = Truncator;
-                        tr.tolerance = eps;
-                        tr.maxRank = s.rank;
-                        f = tr.truncate(f);
+                    if s.outputDimension ~= 1
+                        warning(['Canonical initialization not implemented for ', ...
+                            'outputDimension > 1, performing a random initialization.'])
+                        f = TreeBasedTensor.randn(s.tree,s.rank,sz,s.isActiveNode);
+                    else
+                        f = canonicalInitialization(s,max(s.rank));
+                        if ~all(f.ranks == s.rank)
+                            tr = Truncator;
+                            tr.tolerance = eps;
+                            tr.maxRank = s.rank;
+                            f = tr.truncate(f);
+                        end
                     end
                 otherwise
                     error('Wrong initialization type.')
@@ -138,10 +145,15 @@ classdef TreeBasedTensorLearning < TensorLearning
                 f.tensor = orthAtNode(f.tensor,mu);
             end
             g = parameterGradientEval(f,mu);
-            A = reshape(g.data, g.sz(1),[]);
+            if mu == t.root
+                A = reshape(g.data, g.sz(1),[]);
+            else
+                A = reshape(g.data, g.sz(1),[], f.tensor.ranks(t.root));
+            end
             
             if isa(s.lossFunction,'SquareLossFunction')
                 b = s.trainingData{2};
+                s.linearModelLearning{mu}.sharedCoefficients = (mu ~= s.tree.root);
             elseif isa(s.lossFunction,'DensityL2LossFunction')
                 if ~iscell(s.trainingData)
                     b = [];
@@ -305,6 +317,7 @@ classdef TreeBasedTensorLearning < TensorLearning
             % p: logical matrix
             
             t = s.tree;
+            r(t.root) = 1;
             if t.isLeaf(alpha)
                 palpha = s.basesAdaptationPath{t.dim2ind == alpha};
                 r = r(alpha);
@@ -352,7 +365,8 @@ classdef TreeBasedTensorLearning < TensorLearning
         function [f, newRank, enrichedNodes, tensorForSelection] = newRankSelection(s,f)
             if s.rankAdaptationOptions.rankOneCorrection
                 slocal = s;
-                ranksAdd = ones(1,f.tensor.tree.nbNodes); ranksAdd(f.tensor.tree.root) = 0;
+                ranksAdd = ones(1,f.tensor.tree.nbNodes); 
+                ranksAdd([f.tensor.tree.root, f.tensor.nonActiveNodes]) = 0;
                 slocal.rank = makeRanksAdmissible(f.tensor,f.tensor.ranks + ranksAdd);
                 slocal.initializationType = 'InitialGuess';
                 tr = Truncator('tolerance',0,'maxRank',slocal.rank);
@@ -373,7 +387,7 @@ classdef TreeBasedTensorLearning < TensorLearning
             % nodes, the root, the leaf nodes with a rank equal to the
             % dimension of the basis associated to it, and the nodes for
             % which the smallest singular value is almost zero
-            sv(~f.tensor.isActiveNode) = {NaN}; sv{f.tensor.tree.root} = NaN;
+            sv(cellfun(@isempty, sv)) = {NaN}; sv{f.tensor.tree.root} = NaN;
             dim2ind = intersect(f.tensor.tree.dim2ind,f.tensor.activeNodes);
             sv(dim2ind(~cellfun(@(x) range(x.sz), f.tensor.tensors(dim2ind)))) = {NaN};
             sv(slocal.rank ~= tensorForSelection.ranks) = {NaN};
@@ -475,6 +489,13 @@ classdef TreeBasedTensorLearning < TensorLearning
                 return
             end
             
+             output.adaptedTree = false;
+            
+            if any(f.tensor.ranks(f.tensor.activeNodes) == 0)
+                warning('Some ranks equal to 0, disabling tree adaptation for this step.')
+                return
+            end
+            
             if ~isempty(s.treeAdaptationOptions.tolerance)
                 adaptTreeError = s.treeAdaptationOptions.tolerance;
             elseif strcmpi(s.lossFunction.errorType,'relative')
@@ -498,8 +519,6 @@ classdef TreeBasedTensorLearning < TensorLearning
                 if s.display
                     fprintf('\tTree adaptation:\n\t\tRanks after permutation = [ %s ]\n',num2str(f.tensor.ranks))
                 end
-            else
-                output.adaptedTree = false;
             end
         end
         
@@ -554,7 +573,7 @@ for l = 1:max(t.level)
         r = newRank(alpha)-f.ranks(alpha);
         
         A = reshape(f.tensors{alpha}.data,[],f.ranks(alpha));
-        A(:,end+1:end+r) = repmat(A(:,end),1,r).*(1+randn(size(A,1),r));
+        A = [A, repmat(A(:,end),1,r).*(1+randn(size(A,1),r))];
         A(:,end-r+1:end) = A(:,end-r+1:end) ./ sqrt(sum(A(:,end-r+1:end).^2,1));
         f.tensors{alpha}.sz(end) = f.tensors{alpha}.sz(end)+r;
         f.tensors{alpha}.data = reshape(A,f.tensors{alpha}.sz);
@@ -565,7 +584,7 @@ for l = 1:max(t.level)
         ind = [ind , ch];
         A = permute(f.tensors{gamma}.data,ind);
         A = reshape(A,[],f.ranks(alpha));
-        A(:,end+1:end+r) = repmat(A(:,end),1,r).*(1+randn(size(A,1),r));
+        A = [A, repmat(A(:,end),1,r).*(1+randn(size(A,1),r))];
         A(:,end-r+1:end) = A(:,end-r+1:end) ./ sqrt(sum(A(:,end-r+1:end).^2,1));
         f.tensors{gamma}.sz(ch) = f.tensors{gamma}.sz(ch)+r;
         A = reshape(A,f.tensors{gamma}.sz(ind));
@@ -574,195 +593,6 @@ for l = 1:max(t.level)
         f = updateProperties(f);
     end
 end
-end
-
-function f = enrichedEdgesToRanksCanonical(s,f,newRank)
-% ENRICHEDEDGEDTORANKSCANONICAL - Enrichment of the ranks of specified edges of the tensor f using canonical tensor approximations for each child / parent couple of the enriched edges
-%
-% f = ENRICHEDEDGEDTORANKSCANONICAL(s,f,newRank)
-% s: TreeBasedTensorLearning
-% f: TreeBasedTensor
-% newRank: 1-by-s.numberOfParameters integer
-
-
-if s.linearModelLearning.basisAdaptation && isempty(s.basesAdaptationPath)
-    if ismethod(s.bases, 'adaptationPath')
-        s.basesAdaptationPath = adaptationPath(s.bases);
-    else
-        warning('Cannot perform basis adaptation, disabling it.')
-        s.linearModelLearning = cellfun(@(x) setfield(x, 'basisAdaptation', false), ...
-            s.linearModelLearning, 'UniformOutput', false);
-    end
-end
-H = s.basesEval;
-
-t = f.tree;
-enrichedDims = find(newRank>f.ranks);
-
-for l = 1:max(t.level)
-    nodLvl = intersect(nodesWithLevel(t,l),enrichedDims);
-    for alpha = nodLvl
-        gamma = t.parent(alpha);
-        
-        f = orthAtNode(f,gamma);
-        
-        fH = timesMatrix(f,H);
-        v = evalDiagBelow(fH);
-        w = evalDiagAbove(fH,v);
-        
-        addedRank = newRank(alpha)-f.ranks(alpha);
-        
-        chNod = nonzeros(t.children(:,alpha));
-        aChNod = intersect(chNod,f.activeNodes);
-        naChNod = chNod; naChNod(f.isActiveNode(naChNod)) = [];
-        if t.isLeaf(alpha)
-            Halpha = FullTensor(s.basesEval{f.tree.dim2ind == alpha});
-            if s.linearModelLearning.basisAdaptation
-                adaptationPathAlpha = s.basesAdaptationPath{f.tree.dim2ind == alpha};
-            end
-        else
-            if ~isempty(aChNod)
-                Halpha = v{aChNod(1)};
-                if s.linearModelLearning.basisAdaptation
-                    adaptationPathAlpha = ones(v{aChNod(1)}.sz(2),1);
-                end
-                for i = 2:length(aChNod)
-                    Halpha = outerProductEvalDiag(Halpha,v{aChNod(i)},1,1);
-                    if s.linearModelLearning.basisAdaptation
-                        adaptationPathAlpha = kron(adaptationPathAlpha, ones(v{aChNod(i)}.sz(2),1));
-                    end
-                end
-            end
-            if ~isempty(naChNod)
-                Ana = FullTensor(s.basesEval{t.dim2ind == naChNod(1)});
-                if s.linearModelLearning.basisAdaptation
-                    adaptationPathAlphaNa = s.basesAdaptationPath{f.tree.dim2ind == naChNod(1)};
-                end
-                for i = 2:length(naChNod)
-                    Ana = outerProductEvalDiag(Ana,FullTensor(s.basesEval{t.dim2ind == naChNod(i)}),1,1);
-                    if s.linearModelLearning.basisAdaptation
-                        adaptationPathAlphaNa = kron(adaptationPathAlphaNa,s.basesAdaptationPath{f.tree.dim2ind == naChNod(i)});
-                    end
-                end
-                if ~isempty(aChNod)
-                    Halpha = outerProductEvalDiag(Halpha,Ana,1,1);
-                    if s.linearModelLearning.basisAdaptation
-                        adaptationPathAlpha = kron(adaptationPathAlpha,adaptationPathAlphaNa);
-                    end
-                else
-                    Halpha = Ana;
-                    if s.linearModelLearning.basisAdaptation
-                        adaptationPathAlpha = adaptationPathAlphaNa;
-                    end
-                end
-            end
-        end
-        rAlpha = Halpha.sz(2:end);
-        Halpha = Halpha.data(:,:);
-        
-        chNod = setdiff(nonzeros(t.children(:,gamma)),alpha);
-        aChNod = intersect(chNod,f.activeNodes);
-        naChNod = chNod; naChNod(f.isActiveNode(naChNod)) = [];
-        if ~isempty(aChNod)
-            Hgamma = v{aChNod(1)};
-            if s.linearModelLearning.basisAdaptation
-                adaptationPathGamma = ones(v{aChNod(1)}.sz(2),1);
-            end
-            for i = 2:length(aChNod)
-                Hgamma = outerProductEvalDiag(Hgamma,v{aChNod(i)},1,1);
-                if s.linearModelLearning.basisAdaptation
-                    adaptationPathGamma = kron(adaptationPathGamma, ones(v{aChNod(i)}.sz(2),1));
-                end
-            end
-        end
-        if ~isempty(naChNod)
-            Ana = FullTensor(s.basesEval{t.dim2ind == naChNod(1)});
-            if s.linearModelLearning.basisAdaptation
-                adaptationPathGammaNa = s.basesAdaptationPath{f.tree.dim2ind == naChNod(1)};
-            end
-            for i = 2:length(naChNod)
-                Ana = outerProductEvalDiag(Ana,FullTensor(s.basesEval{t.dim2ind == naChNod(i)}),1,1);
-                if s.linearModelLearning.basisAdaptation
-                    adaptationPathGammaNa = kron(adaptationPathGammaNa,s.basesAdaptationPath{f.tree.dim2ind == naChNod(i)});
-                end
-            end
-            if ~isempty(aChNod)
-                Hgamma = outerProductEvalDiag(Hgamma,Ana,1,1);
-                if s.linearModelLearning.basisAdaptation
-                    adaptationPathGamma = kron(adaptationPathGamma,adaptationPathGammaNa);
-                end
-            else
-                Hgamma = Ana;
-                if s.linearModelLearning.basisAdaptation
-                    adaptationPathGamma = adaptationPathGammaNa;
-                end
-            end
-        end
-        
-        if gamma == t.root
-            sz = 1;
-        else
-            Hgamma = outerProductEvalDiag(Hgamma,w{gamma},1,1);
-            sz = w{gamma}.sz(2);
-        end
-        
-        if s.linearModelLearning.basisAdaptation
-            adaptationPathGamma = kron(adaptationPathGamma,ones(sz,1));
-        end
-        
-        rGamma = Hgamma.sz(2:end);
-        Hgamma = Hgamma.data(:,:);
-        
-        fx = timesMatrixEvalDiag(f,s.basesEval);
-        if isa(s.lossFunction,'SquareLossFunction')
-            R = s.trainingData{2} - fx;
-        elseif isa(s.lossFunction,'DensityL2LossFunction')
-            R = fx;
-        end
-        if ~iscell(s.trainingData)
-            trainingData = {s.trainingData};
-        end
-        trainingData{2} = R;
-        
-        C = CanonicalTensorLearning(2,s.lossFunction);
-        C.trainingData = trainingData;
-        if iscell(s.linearModelLearning)
-            C.linearModelLearning = s.linearModelLearning{1};
-        else
-            C.linearModelLearning = s.linearModelLearning;
-        end
-        C.alternatingMinimizationParameters = s.alternatingMinimizationParameters;
-        C.basesEval = {Halpha;Hgamma};
-        C.display = false;
-        C.tolerance.onStagnation = eps;
-        C.alternatingMinimizationParameters.display = false;
-        C.algorithm = 'greedy';
-        C.initializationType = 'mean';
-        if C.linearModelLearning.basisAdaptation
-            C.basesAdaptationPath = ...
-                {adaptationPathAlpha,...
-                adaptationPathGamma};
-        end
-        C.rank = addedRank;
-        C.warnings = structfun(@(x) false, s.warnings, 'UniformOutput', false);
-        a = C.solve();
-        r = size(a.space.spaces{1},2);
-        
-        ind = size(f.tensors{alpha}); ind(end) = r;
-        alphaCore = reshape(a.space.spaces{1}, ind);
-        alphaCore = FullTensor(alphaCore,length(rAlpha)+1,ind);
-        
-        ind = size(f.tensors{gamma}); ind(t.childNumber(alpha)) = r;
-        gammaCore = reshape(a.space.spaces{2}*diag(a.core.data),ind);
-        gammaCore = FullTensor(gammaCore,length(rGamma)+1,ind);
-        
-        f.tensors{alpha} = cat(f.tensors{alpha},alphaCore,f.tensors{alpha}.order);
-        f.tensors{gamma} = cat(f.tensors{gamma},gammaCore,t.childNumber(alpha));
-        f = updateProperties(f);
-    end
-end
-
-f = orth(f);
 end
 
 function [r,d] = makeRanksAdmissible(f,r)

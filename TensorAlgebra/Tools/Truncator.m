@@ -246,6 +246,8 @@ classdef Truncator
                     maxRank = repmat(maxRank,1,tree.nbNodes);
                     maxRank(tree.root)=1;
                 end
+
+                rootRankGreaterThanOne = (x.order == length(tree.dim2ind)+1);
                 
                 localTolerance = t.tolerance/sqrt(nnz(isActiveNode)-1);
                 maxLvl = max(tree.level);
@@ -254,7 +256,7 @@ classdef Truncator
                 nodesx = tree.dim2ind;
                 ranks = ones(1,tree.nbNodes);
                 for l = maxLvl:-1:1
-                    nodl= tree.nodesWithLevel(l);
+                    nodl = tree.nodesWithLevel(l);
                     for nod = nodl
                         if isActiveNode(nod)
                             if tree.isLeaf(nod)
@@ -265,9 +267,11 @@ classdef Truncator
                             end
                             rep = rep(:)';
                             repc = setdiff(1:length(nodesx),rep);
+                            if rootRankGreaterThanOne
+                                repc = [repc, x.order];
+                            end
                             
-                            Z = permute(x,[rep,repc]);
-                            Z = reshape(Z,[prod(szx(rep)),prod(szx(repc))]);
+                            Z = matricize(x, rep);
                             t.maxRank = maxRank(nod);
                             Ztr = t.truncSvd(Z.data,localTolerance);
                             C{nod} = Ztr.space.spaces{1};
@@ -276,20 +280,28 @@ classdef Truncator
                             Z = Ztr.space.spaces{2}*diag(Ztr.core.data);
                             szx = [szx(repc),ranks(nod)];
                             x = FullTensor(Z,length(szx),szx);
+                            if rootRankGreaterThanOne
+                                perm = [1:x.order-2, x.order, x.order-1];
+                                x = permute(x, perm);
+                                szx = szx(perm);
+                                repc = repc(1:end-1);
+                            end
                             nodesx = [nodesx(repc),nod];
-                            %else
-                            %    nodesx(nod==nodex) = tree.parent(nod);
                         end
                     end
                 end
                 
                 rootch = nonzeros(tree.children(:,tree.root)');
                 [~,rep] = ismember(rootch,nodesx);
+                if rootRankGreaterThanOne
+                    rep = [rep; x.order];
+                end
                 C{tree.root} = permute(x,rep);
                 y = TreeBasedTensor(C,tree);
             elseif isa(x,'TreeBasedTensor')
                 if nargin>2 
-                    warning('The provided DimensionTree is taken taken into account when x is a tree-based tensor')
+                    warning(['The provided DimensionTree and/or isActiveNode ',...
+                        'are not taken into account when x is a TreeBasedTensor.'])
                 end
                 maxRank=t.maxRank;
                 if numel(maxRank)==1
@@ -306,11 +318,13 @@ classdef Truncator
                         Q = Q';
                         sz = zeros(size(G));
                         for i = 1:numel(G)
-                            % truncation of the Gramian in trace norm for a control of frobenius norm of the tensor
-                            t.maxRank = maxRank(i);
-                            q = t.truncSvd(G{i},localTolerance^2,1);
-                            sz(i) = q.core.sz(1);
-                            Q{i} = q.space.spaces{1};
+                            if ~isempty(G{i})
+                                % truncation of the Gramian in trace norm for a control of frobenius norm of the tensor
+                                t.maxRank = maxRank(i);
+                                q = t.truncSvd(G{i},localTolerance^2,1);
+                                sz(i) = q.core.sz(1);
+                                Q{i} = q.space.spaces{1};
+                            end
                         end
                         tree = x.tree;
                         lvls = tree.level;
@@ -474,7 +488,7 @@ classdef Truncator
                     localTolerance = t.tolerance/sqrt(2*d-1);
                 end
                 if numel(t.maxRank)>1
-                    error('not implemented')
+                    error('Method not implemented.')
                 end
                 y.core = t.ttsvd(y.core);
                 for mu = 1:d

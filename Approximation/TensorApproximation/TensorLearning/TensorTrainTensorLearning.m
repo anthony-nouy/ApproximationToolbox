@@ -407,7 +407,7 @@ classdef TensorTrainTensorLearning < TensorLearning
                     s.bases = permute(s.bases,newPerm);
                 end
                 if s.display
-                    fprintf('\tTree adaptation:\n\t\tTermutation = [ %s ]\n',num2str(newPerm))
+                    fprintf('\tTree adaptation:\n\t\tPermutation = [ %s ]\n',num2str(newPerm))
                     fprintf('\t\tRanks after permutation = [ %s ]\n',num2str(f.tensor.ranks))
                 end
             else
