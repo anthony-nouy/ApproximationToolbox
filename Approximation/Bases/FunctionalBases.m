@@ -363,7 +363,7 @@ classdef FunctionalBases
             % H = mean(f,dims,rv)
             % Computes the mean of f in the dimensions in dims according to
             % the RandomVector rv if provided, or to the standard
-            % RandomVector associated with each polynomial if not.
+            % RandomVector associated with each basis if not.
             % If dims is not provided or empty, the mean is computed for
             % all the dimensions.
             % f: FunctionalBases

@@ -186,7 +186,7 @@ classdef ShiftedOrthonormalPolynomials < UnivariatePolynomials
             % px: N-by-d double
             
             x = (x-P.b)/P.s;
-            px = dPolyval(P.p,list,x)/(P.s^n);
+            px = dnPolyval(P.p,n,list,x)/(P.s^n);
             
         end
         

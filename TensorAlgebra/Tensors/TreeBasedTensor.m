@@ -229,18 +229,18 @@ classdef TreeBasedTensor < AlgebraicTensor
             end
         end
         
-        function dT = computeDistances(x,alpha)
-            % COMPUTEDISTANCES - Distances from all nodes of the tree to a given node
+        function cost = nodesPermutationCost(x,alpha)
+            % NODESPERMUTATIONCOST - Cost of the permutation of a given node alpha with the other nodes of the dimension tree.
             %
-            % dT = COMPUTEDISTANCES(x,alpha)
+            % dT = NODESPERMUTATIONCOST(x,alpha)
             % alpha: integer (node index)
-            % dT: 1-by-length(x.tree.nbNodes) double such that dT(j) gives the distance between nodes i and j
+            % dT: 1-by-length(x.tree.nbNodes) double such that dT(j) gives the cost of permutation of nodes i and j
             
             t = x.tree;
             r = x.ranks;
             r(~x.isActiveNode) = x.sz(~x.isActiveNode(t.dim2ind));
             
-            dT = zeros(1,t.nbNodes);
+            cost = zeros(1,t.nbNodes);
             for beta = 1:t.nbNodes
                 if ~(ismember(beta,t.ascendants(alpha)) || ...
                         ismember(beta,t.descendants(alpha)) || ...
@@ -248,7 +248,7 @@ classdef TreeBasedTensor < AlgebraicTensor
                     commonAs = fastIntersect(ascendants(t,alpha), ascendants(t,beta));
                     gamma = commonAs(t.level(commonAs) == max(t.level(commonAs)));
                     as = unique([t.ascendants(alpha), t.ascendants(beta)]);
-                    dT(beta) = r(gamma)*prod(r(fastSetdiff(...
+                    cost(beta) = r(gamma)*prod(r(fastSetdiff(...
                         nonzeros(t.children(:,fastSetdiff(as,t.ascendants(gamma)))),as)));
                 end
             end
@@ -288,20 +288,19 @@ classdef TreeBasedTensor < AlgebraicTensor
                     end
                 end
                 
-                sigma = zeros(m,t.nbNodes);
+                sigma = zeros(m,2);
                 x = xSigma;
                 for i = 1:m
                     probaA = x.ranks(x.tree.parent(nodes)).^2;
                     a = random(DiscreteRandomVariable(nodes(:),probaA/sum(probaA)));
                     
-                    sigma(i,:) = 1:t.nbNodes;
-                    dT = computeDistances(x,a);
-                    if any(dT ~= 0)
-                        [~,candidates,candidateDistances] = find(dT);
-                        probaB = 1./(candidateDistances.^2);
+                    cost = nodesPermutationCost(x,a);
+                    if any(cost ~= 0)
+                        [~,candidates,candidatesCost] = find(cost);
+                        probaB = 1./(candidatesCost.^2);
                         b = random(DiscreteRandomVariable(candidates(:),probaB/sum(probaB)));
                         
-                        sigma(i,[a , b]) = sigma(i,[b, a]);
+                        sigma(i,:) = [a,b];
                         x = permuteNodes(x,sigma(i,:),tol/(m+mStar));
                     end
                 end
@@ -333,7 +332,7 @@ classdef TreeBasedTensor < AlgebraicTensor
             r(~x0.isActiveNode) = x0.sz(~x0.isActiveNode(t.dim2ind));
             
             ind = find(t.isLeaf);
-            dT = zeros(t.nbNodes);
+            cost = zeros(t.nbNodes);
             for i = 1:length(ind)
                 for j = i + 1:length(ind)
                     alpha = ind(i); beta = ind(j);
@@ -341,14 +340,14 @@ classdef TreeBasedTensor < AlgebraicTensor
                     gamma = commonAs(t.level(commonAs) == max(t.level(commonAs)));
                     
                     if t.parent(alpha) ~= t.parent(beta)
-                        dT(alpha,beta) = r(gamma)*prod(r(setdiff(...
+                        cost(alpha,beta) = r(gamma)*prod(r(setdiff(...
                             unique(nonzeros(t.children(:,setdiff([t.ascendants(alpha), ...
                             t.ascendants(beta)],t.ascendants(gamma))))), ...
                             [t.ascendants(alpha), t.ascendants(beta)])));
                     end
                 end
             end
-            dT = dT + dT.';
+            cost = cost + cost.';
             
             probaN = 1./(1:(x.order-1)).^2;
             RVN = DiscreteRandomVariable((1:(x.order-1)).',probaN/sum(probaN));
@@ -366,8 +365,8 @@ classdef TreeBasedTensor < AlgebraicTensor
                 dim2ind = t.dim2ind;
                 sigma = 1:length(dim2ind);
                 for j = 1:length(a)
-                    [~,candidates,candidateDistances] = find(dT(a(j),:));
-                    probaB = 1./(candidateDistances).^2;
+                    [~,candidates,candidatesCost] = find(cost(a(j),:));
+                    probaB = 1./(candidatesCost).^2;
                     b = random(DiscreteRandomVariable(candidates(:),probaB/sum(probaB)));
                     
                     [~,loc] = ismember([a(j) , b],dim2ind);
@@ -400,112 +399,102 @@ classdef TreeBasedTensor < AlgebraicTensor
             xStar = permuteLeaves(x0,sigmaStar,tol);
         end
         
-        function x = permuteNodes(x,perm,tol)
-            % PERMUTENODES - Permutation of nodes
+        function x = permuteNodes(x,nodes,tol)
+            % PERMUTENODES - Permutation of two nodes of the tree.
             %
-            % x = PERMUTENODES(x,perm,tol)
-            % Permutations of the nodes given a permutation perm of the set of nodes and a tolerance tol (for SVD-based truncations)
+            % x = PERMUTENODES(x,nodes,tol)
+            % Permutations of the two nodes in nodes given a tolerance tol (for SVD-based truncations).
             %
             % x: TreeBasedTensor
-            % perm: 1-by-x.tree.nbNodes double (permutation of (1,...,x.tree.nbNodes))
+            % nodes: 1-by-2 double containing the two nodes to permute
             % tol: double (relative precision for SVD truncations)
             
+            assert(nnz(nodes) == 2, 'Must permute two nodes.')
+            
             t = x.tree;
-            if all(perm == 1:t.nbNodes)
-                return
-            end
 
             if nargin < 3 || isempty(tol)
                 tol = 1e-15;
             end
-            if t.nbNodes ~= length(perm)
-                error('The permutation vector size must be equal to the number of nodes.')
-            elseif ~all(sort(perm) == 1:t.nbNodes)
-                error('Invalid permutation of the nodes.')
-            elseif nnz(perm ~= 1:t.nbNodes) ~= 2
-                error('Must permute two nodes at most.')
-            end
             
-            if ~all(1:length(perm) == perm)
-                nodesToPermute = find(1:length(perm) ~= perm);
-                a = nodesToPermute(1); b = nodesToPermute(2);
-                if ismember(b,t.ascendants(a)) || ismember(b,t.descendants(a))
-                    error('Cannot permute the nodes a and b if b is an ascendant or descendant of a.')
-                elseif t.parent(a) ~= t.parent(b)
-                    asA = ascendants(t,a); asB = ascendants(t,b);
-                    commonAs = fastIntersect(asA, asB);
-                    gamma = commonAs(t.level(commonAs) == max(t.level(commonAs)));
-                    commonAs(commonAs == gamma) = [];
-                    subnod = fastSetdiff(unique([asA, asB]),commonAs);
-                    
-                    tr = Truncator;
-                    tr.tolerance = max(1e-15,tol/sqrt(length(subnod)-1));
-                    
-                    x = orthAtNode(x,gamma);
-                    C = x.tensors;
-                    L = max(t.level(subnod));
-                    if t.root == gamma && x.ranks(t.root) == 1
-                        S = nonzeros(t.children(:,gamma));
-                    else
-                        S = [nonzeros(t.children(:,gamma)) ; gamma];
-                    end
-                    for l = t.level(gamma)+1:L
-                        nodLvl = nodesWithLevel(t,l);
-                        for nod = fastIntersect(nodLvl,subnod)
-                            C{gamma} = timesTensor(C{nod},C{gamma},C{nod}.order,find(S == nod));
-                            C{nod} = [];
-                            S = [nonzeros(t.children(:,nod)) ; setdiff(S,nod,'stable')];
-                        end
-                    end
-                    
-                    perm = 1:length(S);
-                    perm([find(S == a),find(S == b)]) = perm([find(S == b),find(S == a)]);
-                    C{gamma} = permute(C{gamma},perm);
-                    S = S(perm);
-                    
-                    t.adjacencyMatrix(t.parent(a),a) = 0;
-                    t.adjacencyMatrix(t.parent(a),b) = 1;
-                    t.adjacencyMatrix(t.parent(b),b) = 0;
-                    t.adjacencyMatrix(t.parent(b),a) = 1;
-                    t = precomputeProperties(t);
-                    t = updateDimsFromLeaves(t);
-                    
-                    for l = L:-1:t.level(gamma)+1
-                        nodLvl = nodesWithLevel(t,l);
-                        for nod = fastIntersect(nodLvl,subnod)
-                            [~,ind] = ismember(nonzeros(t.children(:,nod)),S);
-                            nind = setdiff((1:length(S))',ind);
-                            
-                            w = permute(C{gamma},[ind ; nind]);
-                            w = reshape(w,[prod(C{gamma}.sz(ind)), prod(C{gamma}.sz(nind))]);
-                            tr.maxRank = min(w.sz);
-                            w = tr.truncate(w);
-                            S = [S(nind) ; nod];
-                            r = w.core.sz(1);
-                            x.ranks(nod) = r;
-                            C{nod} = reshape(FullTensor(w.space.spaces{1}),[C{gamma}.sz(ind),r]);
-                            C{gamma} = reshape(FullTensor(w.space.spaces{2}),[C{gamma}.sz(nind),r]);
-                            
-                            perm = 1:C{gamma}.order;
-                            perm = [perm(1:t.childNumber(nod)-1), C{gamma}.order, perm(t.childNumber(nod):C{gamma}.order-1)];
-                            C{gamma} = permute(C{gamma},perm);
-                            C{gamma} = timesMatrix(C{gamma},diag(w.core.data),t.childNumber(nod));
-                            S = S(perm);
-                        end
-                    end
-                    
-                    [~,perm] = ismember(nonzeros(t.children(:,gamma)),S);
-                    if gamma~= t.root || x.ranks(t.root) > 1
-                        perm = [perm ; C{gamma}.order]; 
-                    end
-                    C{gamma} = permute(C{gamma},perm);
-                                        
-                    x = TreeBasedTensor(C,t,x.isActiveNode);
-                    
-                    % Ensure that the tensor x is rank admissible
-                    tr = Truncator('tolerance',eps,'maxRank',x.ranks);
-                    x = tr.truncate(x);
+            a = nodes(1); b = nodes(2);
+            
+            if ismember(b,t.ascendants(a)) || ismember(b,t.descendants(a))
+                error('Cannot permute the nodes a and b if b is an ascendant or descendant of a.')
+            elseif t.parent(a) ~= t.parent(b)
+                asA = ascendants(t,a); asB = ascendants(t,b);
+                commonAs = fastIntersect(asA, asB);
+                gamma = commonAs(t.level(commonAs) == max(t.level(commonAs)));
+                commonAs(commonAs == gamma) = [];
+                subnod = fastSetdiff(unique([asA, asB]),commonAs);
+
+                tr = Truncator;
+                tr.tolerance = max(1e-15,tol/sqrt(length(subnod)-1));
+
+                x = orthAtNode(x,gamma);
+                C = x.tensors;
+                L = max(t.level(subnod));
+                if t.root == gamma && x.ranks(t.root) == 1
+                    S = nonzeros(t.children(:,gamma));
+                else
+                    S = [nonzeros(t.children(:,gamma)) ; gamma];
                 end
+                for l = t.level(gamma)+1:L
+                    nodLvl = nodesWithLevel(t,l);
+                    for nod = fastIntersect(nodLvl,subnod)
+                        C{gamma} = timesTensor(C{nod},C{gamma},C{nod}.order,find(S == nod));
+                        C{nod} = [];
+                        S = [nonzeros(t.children(:,nod)) ; setdiff(S,nod,'stable')];
+                    end
+                end
+
+                perm = 1:length(S);
+                perm([find(S == a),find(S == b)]) = perm([find(S == b),find(S == a)]);
+                C{gamma} = permute(C{gamma},perm);
+                S = S(perm);
+
+                t.adjacencyMatrix(t.parent(a),a) = 0;
+                t.adjacencyMatrix(t.parent(a),b) = 1;
+                t.adjacencyMatrix(t.parent(b),b) = 0;
+                t.adjacencyMatrix(t.parent(b),a) = 1;
+                t = precomputeProperties(t);
+                t = updateDimsFromLeaves(t);
+
+                for l = L:-1:t.level(gamma)+1
+                    nodLvl = nodesWithLevel(t,l);
+                    for nod = fastIntersect(nodLvl,subnod)
+                        [~,ind] = ismember(nonzeros(t.children(:,nod)),S);
+                        nind = setdiff((1:length(S))',ind);
+
+                        w = permute(C{gamma},[ind ; nind]);
+                        w = reshape(w,[prod(C{gamma}.sz(ind)), prod(C{gamma}.sz(nind))]);
+                        tr.maxRank = min(w.sz);
+                        w = tr.truncate(w);
+                        S = [S(nind) ; nod];
+                        r = w.core.sz(1);
+                        x.ranks(nod) = r;
+                        C{nod} = reshape(FullTensor(w.space.spaces{1}),[C{gamma}.sz(ind),r]);
+                        C{gamma} = reshape(FullTensor(w.space.spaces{2}),[C{gamma}.sz(nind),r]);
+
+                        perm = 1:C{gamma}.order;
+                        perm = [perm(1:t.childNumber(nod)-1), C{gamma}.order, perm(t.childNumber(nod):C{gamma}.order-1)];
+                        C{gamma} = permute(C{gamma},perm);
+                        C{gamma} = timesMatrix(C{gamma},diag(w.core.data),t.childNumber(nod));
+                        S = S(perm);
+                    end
+                end
+
+                [~,perm] = ismember(nonzeros(t.children(:,gamma)),S);
+                if gamma~= t.root || x.ranks(t.root) > 1
+                    perm = [perm ; C{gamma}.order]; 
+                end
+                C{gamma} = permute(C{gamma},perm);
+
+                x = TreeBasedTensor(C,t,x.isActiveNode);
+
+                % Ensure that the tensor x is rank admissible
+                tr = Truncator('tolerance',eps,'maxRank',x.ranks);
+                x = tr.truncate(x);
             end
         end
         

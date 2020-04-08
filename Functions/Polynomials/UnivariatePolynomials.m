@@ -67,8 +67,8 @@ classdef (Abstract) UnivariatePolynomials
             % Computes the coefficients of the monomials used to create the n-th order derivative of the polynomials of degree specified in list
             % p: UnivariatePolynomials
             % n: integer
-            % list: 1-by-n or n-by-1 array of integers
-            % c: n-by-max(list)+1 double
+            % list: 1-by-m or m-by-1 array of integers
+            % c: m-by-max(list)+1 double
             
             c = polyCoeff(p,list);
             d = prod(repmat(0:max(list)-n,n,1) + repmat((1:n)',1,max(list)-n+1),1);

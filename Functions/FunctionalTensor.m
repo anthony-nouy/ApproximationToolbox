@@ -354,12 +354,10 @@ classdef FunctionalTensor < Function
                 % the gradient of f with respect to f.tensor.tensors{mu}.
                 t = f.tensor.tree;
                 if t.isLeaf(mu)
-                    dims = 1:f.tensor.order;
                     dims(t.dim2ind == mu) = [];
                 else
                     ch = nonzeros(t.children(:,mu));
                     ind = intersect(t.dim2ind,ch(~f.tensor.isActiveNode(ch)));
-                    dims = 1:f.tensor.order;
                     dims(ismember(t.dim2ind,ind)) = [];
                 end
                 
@@ -406,7 +404,7 @@ classdef FunctionalTensor < Function
                     a = t.adjacencyMatrix(keepind,keepind);
                     dim2ind = nonzeros(dim2ind).';
 
-                    ind = setdiff(1:1:t.nbNodes, keepind);
+                    ind = setdiff(1:t.nbNodes, keepind);
                     I = zeros(1,t.nbNodes);
                     I(ind) = 1;
                     I = cumsum(I);

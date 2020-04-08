@@ -694,7 +694,7 @@ classdef FullTensor < AlgebraicTensor
             % For an order-two tensor, returns a matrix V containing r principal components of x, such that
             % - if t is an integer, r=min(t,x.sz(2))
             % - if t<1, the rank r is determined such that || x - VV'x ||_F < t || x ||_F
-            % By default, t = size(t,1)
+            % By default, t = size(x,1)
             
             assert(ndims(x)==2,'The order of the tensor must be 2.')
             if nargin==1 || t>size(x,1)

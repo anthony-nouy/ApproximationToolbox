@@ -37,7 +37,7 @@ classdef RandomVector < ProbabilityMeasure
             
             if nargin==1 && isa(varargin{1}, 'RandomVector')
                 rv = varargin{1};
-            elseif nargin==1 && isa(varargin{1}, 'RandomVector') && isa(varargin{2}, 'Copula')
+            elseif nargin==2 && isa(varargin{1}, 'RandomVector') && isa(varargin{2}, 'Copula')
                 rv = varargin{1};
                 rv.copula = varargin{2};
             elseif nargin == 1 && isa(varargin{1}, 'RandomVariable')
