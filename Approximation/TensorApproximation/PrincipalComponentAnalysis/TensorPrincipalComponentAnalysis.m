@@ -1,6 +1,6 @@
 % Class TensorPrincipalComponentAnalysis
 %
-% Approximation of multidimensional arrays (tensors) using higher-order 
+% Approximation of multidimensional arrays (tensors) using higher-order
 % principal component analysis.
 %
 % Implementation based on the article:
@@ -8,7 +8,7 @@
 % tensors in tree-based low-rank formats. Numerische Mathematik, 141(3):743--789, Mar 2019.
 
 % Copyright (c) 2020, Anthony Nouy, Erwan Grelier, Loic Giraldi
-% 
+%
 % This file is part of ApproximationToolbox.
 %
 % ApproximationToolbox is free software: you can redistribute it and/or modify
@@ -30,8 +30,8 @@ classdef TensorPrincipalComponentAnalysis
         display = true;
         PCASamplingFactor = 1;
         PCAAdaptiveSampling = false;
-        PCATestError = false;
-        tol = 10e-8;
+        tol = 1e-8; % relative precision
+        maxRank = Inf; % maximum rank
     end
     
     
@@ -40,49 +40,63 @@ classdef TensorPrincipalComponentAnalysis
         function s = TensorPrincipalComponentAnalysis()
             % function s = TensorPrincipalComponentAnalysis()
             % Principal component analysis of an algebraic tensor
-            % s.PCATestError (true or false): error estimation for determining the rank for prescribed tolerance
-            % s.PCAAdaptiveSampling (true or false): adaptive sampling for determining the principal components with prescribed precision
-            % s.PCASamplingFactor: factor for determining the number of samples for the estimation of principal components (1 by default)
+            %
+            % TPCA.maxRank: array containing the maximum alpha-ranks (length depends on the format)
+            % If numel(TPCA.maxRank)=1, use the same value for all alpha
+            % Set TPCA.maxRank = inf for prescribing the precision.
+            % 
+            % TPCA.tol : array containing the prescribed relative precisions (length depends on the format)
+            % If numel(TPCA.tol)=1, use the same value for all alpha
+            % Set TPCA.tol = inf for prescribing the rank.
+            %            %
+            % TPCA.PCASamplingFactor : factor for determining the number 
+            %    of samples N for the estimation of principal components (1 by default)
+            %         
+            %            - if prescribed precision, N = TPCA.PCASamplingFactor*N_alpha
+            %            - if prescribed rank, N=TPCA.PCASamplingFactor*t
+            %
+            % s.PCAAdaptiveSampling (true or false): adaptive sampling for 
+            %       determining the principal components with prescribed precision
         end
         
-        function [fpc,output] = alphaFunctionalPrincipalComponents(TPCA,fun,sz,alpha,basis,tol,gridalpha)
-            % [fpc,output] = alphaFunctionalPrincipalComponents(TPCA,fun,sz,alpha,basis,t,gridalpha)
+        function [pc,output] = alphaPrincipalComponents(TPCA,fun,sz,alpha,tol,Balpha,Ialpha)
+            % [pc,output] = alphaPrincipalComponents(TPCA,fun,sz,alpha,t,Balpha,Ialpha)
+            % 
             % For alpha in {1,...,d}, it evaluates the alpha-principal components of a
             % tensor f, that means the principal components of
-            % the matricisations f_\alpha(i_\alpha,i_notalpha).
-            % It evaluates f_\alpha on the product of a given interpolation grid in dimension
-            % alpha and a random grid (N samples) in the complementary dimensions.
+            % the matricisations f_alpha(i_alpha,i_notalpha), where i_alpha
+            % and i_notalpha are groups of indices
+            %
+            % It evaluates f_alpha on the product of a set of indices in dimension
+            % alpha (of size Nalpha) and a set of random indices (N samples) in the complementary dimensions.
             % Then, it computes approximations of alpha-principal components
-            % in a given basis.
-            % If t is an integer, t is the number of principal components
-            % If t<1, the number of principal components is determined such
+            % in a given basis phi_1(i_alpha) ... phi_Nalpha(i_alpha)
+            %
+            % If t is an integer, t is the rank (number of principal components)
+            % If t<1, the rank (number of principal components) is determined such
             % that the relative error after truncation is t.
             %
-            % fun: function of d variables i_1,...,i_d which returns the
-            % entries of the tensor
+            % fun: function of d variables i_1,...,i_d which returns the entries of the tensor
             % sz : size of the tensor
-            % X: RandomVector of dimension d
-            % alpha: set of indices in {1,...,d}
-            % basis: FunctionalBasis
-            % t: number of components or a positive number <1 (tolerance)
-            % gridalpha: array of size n-by-#alpha
-            % (if n is higher than the dimension of basis, selection of magic points associated with the basis)
+            % alpha: array containing a tuple in {1,...,d}
+            % t: number of principal components or a positive number <1 (tolerance)
+            % Ialpha: array of size N_alpha-by-#alpha containing N_alpha tuple i_alpha
+            % Balpha: array of size N_\alpha-by-N_\alpha whose i-th column is the evaluation of phi_i at the
+            % set of indices i_alpha in Ialpha.
             %
             % TPCA.PCASamplingFactor : factor for determining the number of samples N for the estimation of principal
             %         components (1 by default)
-            %            - if t<1, N = TPCA.PCASamplingFactor*numel(basis)
+            %            - if t<1, N = TPCA.PCASamplingFactor*N_alpha
             %            - if t is the rank, N=TPCA.PCASamplingFactor*t
-            % fpc: functional principal components obtained by
-            % interpolation on the given FunctionalBasis
-            % output.pcOnGrid: principal components on the grid gridalpha
+            % pc: array of size N_alpha-by-rank whose columns are the principal components
             % output.sv: corresponding singular values
-            % output.grid: interpolation grid in dimension alpha
-            
+            % output.samples: set of indices at which the tensor has been evaluated
+
             X = randomMultiIndices(sz);
             d = length(sz);
             notalpha = setdiff(1:d,alpha);
             if tol< 1
-                N = TPCA.PCASamplingFactor * cardinal(basis);
+                N = TPCA.PCASamplingFactor * size(Balpha,2);
             else
                 N = TPCA.PCASamplingFactor * tol;
             end
@@ -90,214 +104,228 @@ classdef TensorPrincipalComponentAnalysis
             N=ceil(N);
             
             Xnotalpha = RandomVector(X.randomVariables(notalpha));
-            Xalpha = RandomVector(X.randomVariables(alpha));
             
-            gridnotalpha = random(Xnotalpha,N);
+            Inotalpha = random(Xnotalpha,N);
             
             notalpha = setdiff(1:d,alpha);
             [~,I]=ismember(1:d,[alpha,notalpha]);
             
-            if tol <1 && ~TPCA.PCAAdaptiveSampling && TPCA.PCATestError
-                
-                gridalpha = TPCA.alphaGridInterpolation(alpha,X,basis,gridalpha);
-                grid = FullTensorGrid({gridalpha,gridnotalpha});
-                xgrid=array(grid);
-                ualphax = fun(xgrid(:,I));
-                ualphax = FullTensor(ualphax,2,[size(gridalpha,1),N]);
-                
-                [V,sv] = principalComponents(ualphax,size(gridalpha,1));
-                sv = diag(sv);
-                [~,a]=basis.interpolate(V,gridalpha);
-                
-                r=0;err=Inf;
-                while err > TPCA.tol
-                    r=r+1;
-                    err = sqrt(1 - sum(sv(1:r).^2)/sum(sv.^2));
-                end
-                rmin=r;
-                
-                Ntest = 5;
-                gridnotalphatest = random(Xnotalpha,Ntest);
-                gridtest = FullTensorGrid({gridalpha,gridnotalphatest});
-                xgridtest = array(gridtest);
-                ualphaxtest = fun(xgridtest(:,I));
-                ualphaxtest = reshape(ualphaxtest,[size(gridalpha,1),Ntest]);
-                
-                ualphatest = basis.interpolate(ualphaxtest,gridalpha);
-                ttest = inf;
-                
-                Ntestalpha = 1000;
-                gridalphatest = random(Xalpha,Ntestalpha);
-                
-                for r=rmin:size(gridalpha,1)
-                    fpc = SubFunctionalBasis(basis,a(:,1:r));
-                    [xmagic,Imagic] = magicPoints(fpc,gridalpha);
-                    Iualphatest = fpc.interpolate(ualphaxtest(Imagic,:),xmagic);
-                    yIV = Iualphatest.eval(gridalphatest);
-                    y = ualphatest.eval(gridalphatest);
-                    ttest = norm(yIV-y,'fro')/norm(y,'fro');
-                    if ttest < TPCA.tol
-                        break
-                    end
-                end
-                
-                if ttest >TPCA.tol
-                    warning('Precision not reached, should adapt sample.')
-                end
-                
-                a = a(:,1:r);
-                output.pcOnGrid = V(:,1:r);
-                output.numberOfEvaluations = size(xgrid,1) + size(xgridtest,1);
-                
-            elseif tol < 1 && TPCA.PCAAdaptiveSampling
-                gridalpha = TPCA.alphaGridInterpolation(alpha,X,basis,gridalpha);
-                A = FullTensor(zeros(size(gridalpha,1),0),2,[size(gridalpha,1),0]);
+            if tol < 1 && TPCA.PCAAdaptiveSampling
+                A = FullTensor(zeros(size(Ialpha,1),0),2,[size(Ialpha,1),0]);
                 for k=1:N
-                    grid = FullTensorGrid({gridalpha,gridnotalpha(k,:)});
-                    xgrid=array(grid);
-                    A.data = [A.data,fun.eval(xgrid(:,I))];
-                    [V,sv] = principalComponents(A,tol);
-                    if sv(end)<1e-15 || size(V,2)<ceil(k/TPCA.PCASamplingFactor)
+                    grid  = FullTensorGrid({Ialpha,Inotalpha(k,:)});
+                    productgrid = array(grid);
+                    Ak = Balpha\fun.eval(productgrid(:,I));
+                    A.data = [A.data,Ak];
+                    [pc,sv] = principalComponents(A,tol);
+                    if sv(end)<1e-15 || size(pc,2)<ceil(k/TPCA.PCASamplingFactor)
                         break
                     end
                 end
-                [~,a]=basis.interpolate(V,gridalpha);
-                output.pcOnGrid = V;
-                output.numberOfEvaluations = size(gridalpha,1)*k;
+                output.numberOfEvaluations = size(Ialpha,1)*k;
                 
             else
                 
-                gridalpha = TPCA.alphaGridInterpolation(alpha,X,basis,gridalpha);
-                grid = FullTensorGrid({gridalpha,gridnotalpha});
-                xgrid=array(grid);
-                A = fun(xgrid(:,I));
-                A = reshape(A,[size(gridalpha,1),N]);
-                [~,A]=basis.interpolate(A,gridalpha);
-                A = FullTensor(A,2,[cardinal(basis),N]);
-                [a,sv] = principalComponents(A,tol);
-                
-                output.numberOfEvaluations = size(xgrid,1);
+                grid = FullTensorGrid({Ialpha,Inotalpha});
+                productgrid=array(grid);
+                A = fun(productgrid(:,I));
+                A = reshape(A,[size(Ialpha,1),N]);
+                A = Balpha\A;
+                A = FullTensor(A,2,[size(Balpha,1),N]);
+                [pc,sv] = principalComponents(A,tol);
+                output.numberOfEvaluations = size(Ialpha,1)*N;
                 
             end
-            
-            fpc = SubFunctionalBasis(basis,a);
-            
-            output.grid = gridalpha;
+                        
             output.sv = sv;
-            output.samples = xgrid;
+            output.samples = productgrid;
             
         end
         
         
         function [fpc,outputs] = hopca(TPCA,fun,sz)
             % [fpc,output] = hopca(TPCA,fun,sz)
-            % Returns the set of functional alpha-principal components of the
-            % function fun, for all alpha in {1,2,...,d}.
+            % Returns the set of alpha-principal components of an algebraic tensor, for all alpha in {1,2,...,d}.
+            %
             % fun: function of d variables i_1,...,i_d which returns the entries of the tensor
             % sz : size of the tensor
-            % X: RandomVector of dimension d            %
-            % t: tuple containing tolerance (if t(alpha)<1) or the desired alpha-ranks.
-            % If numel(t)=1, the same tolerance or rank is used for all alpha
-            % fpc: cell containing the functional alpha-principal components
-            % outputs: cell containing the outputs of alphaFunctionalPrincipalComponents
+            %
+            % fpc: 1-by-d cell containing the alpha principal components
+            % outputs: 1-by-d cell containing the outputs of the method alphaPrincipalComponents
+            %
+            % For prescribed precision, set TPCA.maxRank = inf and TPCA.tol
+            % to the desired precision (possibly an array of length d)
+            %
+            % For prescribed rank, set TPCA.tol = inf and TPCA.maxRank to
+            % the desired rank (possibly an array of length d)
+            %
+            % For other options, 
+            % See also TensorPrincipalComponentAnalysis.TensorPrincipalComponentAnalysis
+ 
             
             
             d = length(sz);
-            bases = TPCA.createFunctionalBases(sz);
-            bases = bases.bases;
             
             fpc = cell(1,d);
             outputs = cell(1,d);
             
             if numel(TPCA.tol)==1
                 TPCA.tol = repmat(TPCA.tol,1,d);
+            elseif numel(TPCA.tol)~=d
+                error('tol should be a scalar or an array of length d')
+            end
+            
+            if numel(TPCA.maxRank)==1
+                TPCA.maxRank = repmat(TPCA.maxRank,1,d);
+            elseif numel(TPCA.maxRank)~=d
+                error('maxRank should be a scalar or an array of length d')
             end
             
             
             for alpha = 1:d
-                basis = bases{alpha};
-                gridalpha = (1:sz(alpha))';
+                Ialpha = (1:sz(alpha))';
+                Balpha = speye(sz(alpha));
+                tolalpha = min(TPCA.tol(alpha),TPCA.maxRank(alpha));
                 [fpc{alpha},outputs{alpha}] = ...
-                    TPCA.alphaFunctionalPrincipalComponents(fun,sz,alpha,basis,TPCA.tol(alpha),gridalpha);
-                fpc{alpha} = eval(fpc{alpha},gridalpha);
+                    TPCA.alphaPrincipalComponents(fun,sz,alpha,tolalpha,Balpha,Ialpha);
             end
             
             
         end
-        
-        
-        function [f,output] = TuckerApproximation(TPCA,fun,sz,varargin)
-            % [f,output] = tuckerApproximation(TPCA,fun,sz)
-            % Approximation of a function in Tucker format based on
-            % Principal Component Analysis for the estimation of subspaces
-            % sz : size of the tensor
+
+        function [f,output] = TuckerApproximation(TPCA,fun,sz)
+            % [f,outputs] = TuckerApproximation(TPCA,fun,sz)
+            % Approximation of a tensor of order d 
+            % in Tucker format based on
+            % Principal Component Analysis
             %
-            % f: FunctionalTensor with a tensor in Tucker-Like format
-            % output.magicPoints: magicPoints associated with basis of functions
+            % fun: function of d variables i_1,...,i_d which returns the entries of the tensor
+            % sz : size of the tensor
+            % f : a tensor in tree based format with a trivial tree
+            %
+            % For prescribed precision, set TPCA.maxRank = inf and TPCA.tol
+            % to the desired precision (possibly an array of length d)
+            %
+            % For prescribed rank, set TPCA.tol = inf and TPCA.maxRank to
+            % the desired rank (possibly an array of length d)
+            %
+            % For other options, 
+            % See also TensorPrincipalComponentAnalysis.TensorPrincipalComponentAnalysis
             
             d = length(sz);
-            bases = TPCA.createFunctionalBases(sz);
-            
-            if numel(TPCA.tol)==1 && TPCA.tol<1
-                TPCA.tol=TPCA.tol/sqrt(d);
-                TPCA.tol=repmat(TPCA.tol,1,d);
+            tree = DimensionTree.trivial(d);
+            if length(TPCA.tol)==d
+                t = TPCA.tol;
+                TPCA.tol = zeros(1,d+1);
+                TPCA.tol(tree.dim2ind)=t;
+            elseif length(TPCA.tol)>1 
+                error('tol should be a scalar or an array of length d')
             end
-            outputs = cell(1,d);
-            samples = cell(1,d+1);
-            numberOfEvaluations = 0;
-            tspace = cell(d,1);
-            fpc = cell(1,d);
-            magicgrid = cell(1,d);
-            
-            for alpha=1:d
-                basis = bases.bases{alpha};
-                gridalpha = (1:sz(alpha))';
-                [fpc{alpha},outputs{alpha}] = ...
-                    TPCA.alphaFunctionalPrincipalComponents(fun,sz,alpha,basis,TPCA.tol(alpha),gridalpha);
-                tspace{alpha}=eval(fpc{alpha},gridalpha);
-                samples{alpha} = outputs{alpha}.grid;
-                magicgrid{alpha} = magicPoints(fpc{alpha},samples{alpha});
-                numberOfEvaluations = numberOfEvaluations + outputs{alpha}.numberOfEvaluations;
+        
+            if length(TPCA.maxRank)==d
+                r = TPCA.maxRank;
+                TPCA.maxRank = zeros(1,d+1);
+                TPCA.maxRank(tree.dim2ind)=r;
+            elseif length(TPCA.maxRank)>1 
+                error('maxRank should be a scalar or an array of length d')
             end
-            output.outputs = outputs;
-            H = FullTensorProductFunctionalBasis(fpc);
-            [f,out] = H.tensorProductInterpolation(@(x) fun.eval(x),magicgrid);
-            samples{d+1} = out.grid;
-            numberOfEvaluations = numberOfEvaluations + out.numberOfEvaluations;
-            tcore = f.tensor;
-            output.magicPoints = magicgrid;
             
-            tspace = TSpaceVectors(tspace);
-            f = TuckerLikeTensor(tcore,tspace);
-            output.numberOfEvaluations = numberOfEvaluations;
-            output.samples = samples;
+            [f,output] = TBApproximation(TPCA,fun,sz,tree);
+            
+        end        
+        
+        function [f,output] = TTApproximation(TPCA,fun,sz)
+            % [f,outputs] = TTApproximation(TPCA,fun,sz)
+            % Approximation of a tensor of order d 
+            % in Tensor Train format based on
+            % Principal Component Analysis
+            %
+            % fun: function of d variables i_1,...,i_d which returns the entries of the tensor
+            % sz : size of the tensor
+            % f : a tensor in tree based format with a linear tree
+            %
+            % For prescribed precision, set TPCA.maxRank = inf and TPCA.tol
+            % to the desired precision (possibly an array of length d-1)
+            %
+            % For prescribed rank, set TPCA.tol = inf and TPCA.maxRank to
+            % the desired rank (possibly an array of length d-1, the desired TT-ranks)
+            %
+            % For other options, 
+            % See also TensorPrincipalComponentAnalysis.TensorPrincipalComponentAnalysis
+            
+           
+            d = length(sz);
+            tree = DimensionTree.linear(d);
+            isActiveNode = true(1,tree.nbNodes);
+            isActiveNode(tree.dim2ind(2:end)) = false;
+            repTT = find(isActiveNode);
+            repTT = flip(repTT(2:end));
+            
+            if length(TPCA.tol)==d-1
+                t = TPCA.tol;
+                TPCA.tol = zeros(1,tree.nbNodes);
+                TPCA.tol(repTT)=t;
+            elseif length(TPCA.tol)>1  
+                error('tol should be a scalar or an array of length d-1')
+            end
+        
+            if length(TPCA.maxRank)==d-1
+                r = TPCA.maxRank;
+                TPCA.maxRank = zeros(1,tree.nbNodes);
+                TPCA.maxRank(repTT)=r;
+            elseif length(TPCA.maxRank)>1  
+                error('maxRank should be a scalar or an array of length d-1')
+            end
+
+            
+            [f,output] = TBApproximation(TPCA,fun,sz,tree,isActiveNode);
+            
         end
         
-        
         function [f,output] = TBApproximation(TPCA,fun,sz,tree,isActiveNode)
-            % [f,outputs] = TBApproximation(TPCA,fun,sz,tree)
-            % Approximation of a function in Tree Based tensor format based on
-            % Principal Component Analysis for the estimation of subspaces
+            % [f,outputs] = TBApproximation(TPCA,fun,sz,tree,isActiveNode)
+            % Approximation of a tensor in 
+            % Tree Based tensor format based on
+            % Principal Component Analysis
+            %
+            % fun: function of d variables i_1,...,i_d which returns the entries of the tensor
             % sz : size of the tensor
             % tree: DimensionTree
             % isActiveNode: logical array indicating which nodes of the tree are active
+            % f : a tensor in tree based format 
+            %
+            % For prescribed precision, set TPCA.maxRank = inf and TPCA.tol
+            % to the desired precision (possibly an array of length tree.nbNodes)
+            %
+            % For prescribed rank, set TPCA.tol = inf and TPCA.maxRank to
+            % the desired rank (possibly an array of length tree.nbNode, the tree-based rank)
+            %
+            % For other options, 
+            % See also TensorPrincipalComponentAnalysis.TensorPrincipalComponentAnalysis
             
             d = length(sz);
-            bases = TPCA.createFunctionalBases(sz);
-            bases = bases.bases;
+            if nargin<5
+                isActiveNode = true(1,tree.nbNodes);
+            end
             
             if numel(TPCA.tol)==1 && TPCA.tol<1
-                Copt = sqrt(tree.nbNodes-1);
+                Copt = sqrt(nnz(isActiveNode)-1);
                 TPCA.tol=TPCA.tol/Copt;
             end
             
             if numel(TPCA.tol)==1
                 TPCA.tol = repmat(TPCA.tol,1,tree.nbNodes);
+            elseif length(TPCA.tol)>1 && length(TPCA.tol)~=tree.nbNodes
+                error('tol should be a scalar or an array of length tree.nbNodes')
             end
             
-            if nargin<5
-                isActiveNode = true(1,tree.nbNodes);
+            if numel(TPCA.maxRank)==1
+                TPCA.maxRank = repmat(TPCA.maxRank,1,tree.nbNodes);
+            elseif length(TPCA.maxRank)>1 && length(TPCA.maxRank)~= tree.nbNodes
+                error('maxRank should be a scalar or an array of length tree.nbNodes')
             end
+            
+
             
             grids = cell(1,d);
             alphaBasis = cell(1,tree.nbNodes);
@@ -310,21 +338,28 @@ classdef TensorPrincipalComponentAnalysis
             for nu=1:d
                 alpha = tree.dim2ind(nu);
                 grids{nu} = (1:sz(nu))';
-                %grids{nu} = TPCA.alphaGridInterpolation(nu,X,bases{nu},grids{nu});
+                Balpha = eye(sz(nu));
                 if isActiveNode(alpha)
-                    [alphaBasis{alpha},outputs{alpha}] = ...
-                        TPCA.alphaFunctionalPrincipalComponents(fun,sz,nu,bases{nu},TPCA.tol(nu),grids{nu});
-                    szalpha = [cardinal(bases{nu}),cardinal(alphaBasis{alpha})];
-                    tensors{alpha} = FullTensor(alphaBasis{alpha}.basis,2,szalpha);
+                    tolalpha = min(TPCA.tol(alpha),TPCA.maxRank(alpha));
+                    [pcalpha,outputs{alpha}] = ...
+                        TPCA.alphaPrincipalComponents(fun,sz,nu,tolalpha,Balpha,grids{nu});
                     samples{alpha} = outputs{alpha}.samples;
-                    alphaGrids{alpha}=magicPoints(alphaBasis{alpha},outputs{alpha}.grid);
+                    szalpha = [sz(nu),size(pcalpha,2)];
+                    tensors{alpha} = FullTensor(pcalpha,2,szalpha);
+                    
+                    Balpha = Balpha*pcalpha;
+                    Ialpha = magicIndices(Balpha);
+                    alphaGrids{alpha} = grids{nu}(Ialpha,:);
+                    alphaBasis{alpha} = Balpha(Ialpha,:);
+                    
+                    
                     numberOfEvaluations = numberOfEvaluations + outputs{alpha}.numberOfEvaluations;
                     if TPCA.display
                         fprintf('alpha = %d : rank = %d, nbeval = %d\n',alpha,szalpha(end),outputs{alpha}.numberOfEvaluations);
                     end
                 else
                     alphaGrids{alpha} = grids{nu};
-                    alphaBasis{alpha} = bases{nu};
+                    alphaBasis{alpha} = Balpha;
                 end
             end
             
@@ -332,16 +367,21 @@ classdef TensorPrincipalComponentAnalysis
                 Tl = intersect(tree.nodesWithLevel(l),tree.internalNodes);
                 for alpha = Tl
                     Salpha = nonzeros(tree.children(:,alpha))';
-                    alphaBasis{alpha} = FullTensorProductFunctionalBasis(alphaBasis(Salpha));
+                    Balpha = TensorPrincipalComponentAnalysis.tensorProductBalpha(alphaBasis(Salpha));
                     alphaGrids{alpha} = array(FullTensorGrid(alphaGrids(Salpha)));
-                    [alphaBasis{alpha},outputs{alpha}] = ...
-                        TPCA.alphaFunctionalPrincipalComponents(fun,sz,tree.dims{alpha},alphaBasis{alpha},TPCA.tol(alpha),alphaGrids{alpha});
-                    szalpha = [cellfun(@cardinal,alphaBasis(Salpha)),...
-                        cardinal(alphaBasis{alpha})];
-                    tensors{alpha} = FullTensor(alphaBasis{alpha}.basis,length(Salpha)+1,szalpha);
-                    samples{alpha} = outputs{alpha}.samples;
-                    alphaGrids{alpha}=magicPoints(alphaBasis{alpha},outputs{alpha}.grid);
                     
+                    tolalpha = min(TPCA.tol(alpha),TPCA.maxRank(alpha));
+                    [pcalpha,outputs{alpha}] = ...
+                        TPCA.alphaPrincipalComponents(fun,sz,tree.dims{alpha},tolalpha,Balpha,alphaGrids{alpha});
+                    samples{alpha} = outputs{alpha}.samples;
+                    szalpha = [cellfun(@(x)size(x,2),alphaBasis(Salpha)),size(pcalpha,2)];
+                    tensors{alpha} = pcalpha;
+                    tensors{alpha} = FullTensor(tensors{alpha},length(Salpha)+1,szalpha);
+                    
+                    Balpha = Balpha*pcalpha;
+                    Ialpha= magicIndices(Balpha);
+                    alphaGrids{alpha} = alphaGrids{alpha}(Ialpha,:);
+                    alphaBasis{alpha} = Balpha(Ialpha,:);
                     numberOfEvaluations = numberOfEvaluations + outputs{alpha}.numberOfEvaluations;
                     if TPCA.display
                         fprintf('alpha = %d: rank = %d, nbeval = %d\n',alpha,szalpha(end),outputs{alpha}.numberOfEvaluations);
@@ -351,16 +391,17 @@ classdef TensorPrincipalComponentAnalysis
             
             alpha=tree.root;
             Salpha = nonzeros(tree.children(:,alpha))';
-            alphaBasis{alpha} = FullTensorProductFunctionalBasis(alphaBasis(Salpha));
-            szalpha = cellfun(@cardinal,alphaBasis(Salpha));
+            Balpha = TensorPrincipalComponentAnalysis.tensorProductBalpha(alphaBasis(Salpha));
+            Ialpha = array(FullTensorGrid(alphaGrids(Salpha)));
+            szalpha = cellfun(@(x) size(x,2),alphaBasis(Salpha));
             [~,I]=ismember(1:d,tree.dims{alpha});
-            [tensors{alpha},out] = alphaBasis{alpha}.tensorProductInterpolation(@(x) fun(x(:,I)),alphaGrids(Salpha));
-            alphaGrids{alpha} = out.grid;
-            tensors{alpha} = tensors{alpha}.tensor;
-            numberOfEvaluations = numberOfEvaluations + out.numberOfEvaluations;
-            samples{alpha} = array(out.grid);
+            tensors{alpha} = Balpha\fun(Ialpha(:,I));
+            tensors{alpha} = FullTensor(tensors{alpha},length(Salpha),szalpha);
+            alphaGrids{alpha} = Ialpha;
+            numberOfEvaluations = numberOfEvaluations + size(Ialpha,1);
+            samples{alpha} = Ialpha;
             if TPCA.display
-                fprintf('Interpolation - nbeval = %d\n',out.numberOfEvaluations);
+                fprintf('Interpolation - nbeval = %d\n',size(Ialpha,1));
             end
             
             f = TreeBasedTensor(tensors,tree);
@@ -374,128 +415,26 @@ classdef TensorPrincipalComponentAnalysis
         
         
         
-        function [f,output] = TTApproximation(TPCA,fun,sz)
-            % [f,outputs] = TTApproximation(TPCA,fun,sz)
-            % Approximation of a function in Tensor Train format based on
-            % Principal Component Analysis
-            X = randomMultiIndices(sz);
-            bases = TPCA.createFunctionalBases(sz);
-            bases = bases.bases;
-            d = length(sz);
-            
-            if numel(TPCA.tol)==1 && TPCA.tol<1
-                Copt = sqrt(d-1);
-                TPCA.tol=TPCA.tol/Copt;
-            end
-            
-            if numel(TPCA.tol)==1
-                TPCA.tol = repmat(TPCA.tol,1,d-1);
-            end
-            
-            
-            fpc = cell(1,d-1);
-            magicgrids = cell(1,d-1);
-            outputs = cell(1,d-1);
-            samples = cell(1,d);
-            cores = cell(1,d);
-            grids = cell(1,d);
-            for nu=1:d
-                grids{nu} = (1:sz(nu))';
-            end
-            nu=1;
-            gridnu = TPCA.alphaGridInterpolation(nu,X,bases{nu},grids{nu});
-            
-            basisalpha = bases{nu};
-            [fpc{1},outputs{1}] = ...
-                TPCA.alphaFunctionalPrincipalComponents(fun,sz,nu,basisalpha,TPCA.tol(1),gridnu);
-            
-            
-            numberOfEvaluations = outputs{1}.numberOfEvaluations;
-            samples{1}=outputs{1}.samples;
-            magicgrids{1} = magicPoints(fpc{1},outputs{1}.grid);
-            
-            sznu = [1,cardinal(bases{nu}),cardinal(fpc{nu})];
-            cores{nu} = FullTensor(fpc{nu}.basis,3,sznu);
-            if TPCA.display
-                fprintf('alpha ={%d}: rank = %d, nbeval = %d\n',nu,sznu(3),outputs{nu}.numberOfEvaluations);
-            end
-            
-            for nu=2:d-1
-                alpha = 1:nu;
-                basisalpha = FullTensorProductFunctionalBasis({fpc{nu-1},bases{nu}});
-                gridnu = TPCA.alphaGridInterpolation(nu,X,bases{nu},grids{nu});
-                gridalpha = array(FullTensorGrid({magicgrids{nu-1},gridnu}));
-                
-                [fpc{nu},outputs{nu}] = ...
-                    TPCA.alphaFunctionalPrincipalComponents(fun,sz,alpha,basisalpha,TPCA.tol(nu),gridalpha);
-                
-                numberOfEvaluations = numberOfEvaluations + outputs{nu}.numberOfEvaluations;
-                samples{nu}=outputs{nu}.samples;
-                magicgrids{nu} = magicPoints(fpc{nu},gridalpha);
-                
-                sznu = [cardinal(fpc{nu-1}),cardinal(bases{nu}),cardinal(fpc{nu})];
-                cores{nu} = FullTensor(fpc{nu}.basis,3,sznu);
-                if TPCA.display
-                    fprintf('alpha ={1,...,%d}: rank = %d, nbeval = %d\n',nu,sznu(3),outputs{nu}.numberOfEvaluations);
-                end
-            end
-            
-            nu=d;
-            basis = FullTensorProductFunctionalBasis({fpc{nu-1},bases{nu}});
-            
-            gridnu = TPCA.alphaGridInterpolation(nu,X,bases{nu},grids{nu});
-            magicgrid = {magicgrids{nu-1},gridnu};
-            [cores{d},out] = basis.tensorProductInterpolation(@(x) fun(x),magicgrid);
-            sznu=[cardinal(fpc{nu-1}),cardinal(bases{nu}),1];
-            cores{d} = reshape(cores{d}.tensor,sznu);
-            numberOfEvaluations = numberOfEvaluations + out.numberOfEvaluations;
-            samples{d} = array(out.grid);
-            if TPCA.display
-                fprintf('Interpolation - nbeval = %d\n',out.numberOfEvaluations);
-            end
-            
-            
-            f = TTTensor(cores);            
-            
-            output.numberOfEvaluations = numberOfEvaluations;
-            output.magicPoints = magicgrids;
-            
-            output.outputs = outputs;
-            output.fpc = fpc;
-            output.samples = samples;
-        end
-        
-        
-        
-        
     end
     
     
-    methods (Hidden)
+    methods (Static,Hidden)
         
-        
-        function bases = createFunctionalBases(~,sz)
-            d = length(sz);
-            bases = cell(1,length(sz));
-            for k=1:d
-                bases{k} = DeltaFunctionalBasis((1:sz(k))');
-            end
-            bases = FunctionalBases(bases);
-        end
-        
-        function gridalpha=alphaGridInterpolation(~,alpha,X,basis,gridalpha)
+        function B = tensorProductBalpha(Bs)
+            % Bs : cell containing s matrices B1 , ... , Bs 
+            % where Bi is a n(i)-by-r(i) matrix
+            % B : matrix of size prod(n)-by-prod(r) matrix whose entry 
+            % B(I , J) = B1(i_1,j_1) ... Bs(i_s,j_s)
+            % with I = (i_1,...,is) and J = (j1,...,js)
             
-            if isempty(gridalpha)
-                gridalpha = max(cardinal(basis)*10,1000);
-                Xalpha = RandomVector(X.randomVariables(alpha));
-                gridalpha = random(Xalpha,gridalpha);
-            end
-            
-            if size(gridalpha,1)>cardinal(basis)
-                gridalpha = magicPoints(basis,gridalpha);
-            elseif size(gridalpha,1)<cardinal(basis)
-                error('the number of grid points must be higher than the dimension of the basis')
-            end
+            Bs = cellfun(@(x) FullTensor(x,2,size(x)),Bs,'uniformoutput',false);
+            B = Bs{1};
+            for k=2:length(Bs)
+                B = timesTensor(B,Bs{k},[],[]);
+            end            
+            B = permute(B,[1:2:B.order-1,2:2:B.order]);
+            B = reshape(B,[prod(B.sz(1:B.order/2)),prod(B.sz(B.order/2+1:end))]);
+            B = B.data;
         end
         
     end
