@@ -376,6 +376,24 @@ classdef DimensionTree
             end
         end
         
+        function p = path(T,a,b)
+            % Returns the path between two nodes a and b
+            % 
+            % function p = path(T,a,b)
+            % T : DimensionTree
+            % a,b : integer
+            % p : array of integers
+            
+            pa = ascendants(t,a);
+            pb = ascendants(t,b);
+            commonAs = fastIntersect(pa,pb);
+            gamma = commonAs(T.level(commonAs) == max(T.level(commonAs)));
+            pa = fastSetdiff(pa,commonAs);
+            pb = fastSetdiff(pb,commonAs);
+            p = [pa,gamma,flip(pb)];
+        end
+        
+        
         function [subT,nod] = subDimensionTree(T,r)
             % Extracts a sub dimension tree
             %
