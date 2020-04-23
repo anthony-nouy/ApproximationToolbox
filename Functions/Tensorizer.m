@@ -142,6 +142,12 @@ classdef Tensorizer
             %
             % t: Tensorizer
             % h: FunctionalBasis or function_handle or double (for constant basis function) or FunctionalBases
+            % h=1 by default
+            
+            if nargin==1
+                h=1;
+            end
+            
             if isa(h,'double')
                 h = @(y) h*ones(size(y));
             end

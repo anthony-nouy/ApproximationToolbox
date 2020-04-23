@@ -61,18 +61,6 @@ fprintf('--- Approximation in Tucker format ---- \n')
 TPCA = TensorPrincipalComponentAnalysis();
 TPCA.PCASamplingFactor = 1;
 TPCA.PCAAdaptiveSampling = 0;
-% prescribed tolerance
-fprintf('\nPrescribed tolerance\n')
-TPCA.tol = tol;
-[f,output] = TPCA.TuckerApproximation(fun,sz);
-
-fprintf('Number of evaluations = %d\n',output.numberOfEvaluations);
-fprintf('Ranks = [%s]\n',num2str(f.ranks(f.tree.dim2ind)));
-xtest = random(X,10000);
-fxtest = f.evalAtIndices(xtest);
-ytest  = fun(xtest);
-fprintf('Error = %d\n',norm(ytest-fxtest)/norm(ytest))
-
 % prescribed ranks
 fprintf('\nPrescribed ranks\n')
 TPCA.tol = inf;
@@ -87,6 +75,21 @@ xtest = random(X,10000);
 fxtest = f.evalAtIndices(xtest);
 ytest  = fun(xtest);
 fprintf('Error = %d\n',norm(ytest-fxtest)/norm(ytest))
+
+
+% prescribed tolerance
+fprintf('\nPrescribed tolerance\n')
+TPCA.tol = tol;
+TPCA.maxRank = inf;
+[f,output] = TPCA.TuckerApproximation(fun,sz);
+
+fprintf('Number of evaluations = %d\n',output.numberOfEvaluations);
+fprintf('Ranks = [%s]\n',num2str(f.ranks(f.tree.dim2ind)));
+xtest = random(X,10000);
+fxtest = f.evalAtIndices(xtest);
+ytest  = fun(xtest);
+fprintf('Error = %d\n',norm(ytest-fxtest)/norm(ytest))
+
 
 %% Approximation in Tree based format
 fprintf('--- Approximation in Tree based format ---- \n')

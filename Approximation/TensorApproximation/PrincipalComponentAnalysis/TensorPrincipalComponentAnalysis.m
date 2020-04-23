@@ -115,7 +115,7 @@ classdef TensorPrincipalComponentAnalysis
                 for k=1:N
                     grid  = FullTensorGrid({Ialpha,Inotalpha(k,:)});
                     productgrid = array(grid);
-                    Ak = Balpha\fun.eval(productgrid(:,I));
+                    Ak = Balpha\fun(productgrid(:,I));
                     A.data = [A.data,Ak];
                     [pc,sv] = principalComponents(A,tol);
                     if sv(end)<1e-15 || size(pc,2)<ceil(k/TPCA.PCASamplingFactor)
