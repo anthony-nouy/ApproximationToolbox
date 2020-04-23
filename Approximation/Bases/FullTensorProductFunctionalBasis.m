@@ -206,11 +206,14 @@ classdef FullTensorProductFunctionalBasis < FunctionalBasis
             % Interpolation of function fun on a product grid
             %
             % H: FullTensorProductFunctionalBasis
-            % fun: function of d variables, d = ndims(H)
+            % fun: - function of d variables, d = ndims(H)
+            %      - or tensor of order d whose entries are the evaluations of 
+            %           the function on a product grid 
             % grids: cell containing d grids or FullTensorGrid
             % if one grid have more points than the dimension of the
             % corresponding basis, use magicPoints for the selection of a subset of points
             % adapted to the basis
+            % 
             % finterp: FunctionalTensor
             % output.numberOfEvaluations: number of evaluations of the
             % function
@@ -220,16 +223,22 @@ classdef FullTensorProductFunctionalBasis < FunctionalBasis
             else
                 grid = interpolationPoints(H.bases,grid);
             end
-            
             grid = FullTensorGrid(grid);
-            xgrid = array(grid);
-            y = fun(xgrid);
-            y = FullTensor(y,grid.dim,grid.sz);
-            output.numberOfEvaluations = numel(y);
+            
+            if isa(fun,'Function') || isa(fun,'function_handle')              
+                xgrid = array(grid);
+                y = fun(xgrid);
+                y = FullTensor(y,grid.dim,grid.sz);
+                output.numberOfEvaluations = numel(y);
+            elseif isa(fun,'AlgebraicTensor')
+                y = fun;
+            else
+                error('argument fun should be a Function, function_handle, or an AlgebraicTensor')                
+            end
             output.grid = grid;
             
             B = eval(H.bases,grid.grids);
-            B = cellfun(@inv,B,'UniformOutput',false);
+            B = cellfun(@(x) ImplicitMatrix.inverse(x),B,'UniformOutput',false);
             y = timesMatrix(y,B);
             finterp = FunctionalTensor(y,H.bases);
         end

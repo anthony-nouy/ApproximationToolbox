@@ -368,6 +368,15 @@ classdef FunctionalBasisArray < Function
             rv = getRandomVector(f.basis);
         end
         
+        function s = storage(f)
+            s = numel(f.data);            
+        end
+        
+        function s = sparseStorage(f)
+            s = nnz(f.data);            
+        end
+        
+        
         function g = projection(f,basis,indices)
             % g = projection(f,basis,indices)
             % Projection of f on a functional basis using multi-indices

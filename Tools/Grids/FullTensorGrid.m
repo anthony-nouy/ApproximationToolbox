@@ -57,14 +57,22 @@ classdef FullTensorGrid < TensorGrid
             G.grids = grids;
         end
         
-        function x = array(G)
-            I = multiIndices(G);
+        function x = array(G,ind)
+            if nargin==1
+                I = multiIndices(G);
+                ind = I.array;
+            end
             x = cell(1,G.dim);
             for i=1:G.dim
-                x{i}=G.grids{i}(I.array(:,i),:);
+                x{i}=G.grids{i}(ind(:,i),:);
             end
             x = [x{:}];
         end
+        
+        function x = evalAtIndices(G,ind)
+            x = array(G,ind);
+        end
+        
         
         function n = numel(G)
             n = prod(G.sz);

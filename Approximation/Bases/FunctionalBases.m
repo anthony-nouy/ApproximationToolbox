@@ -410,6 +410,16 @@ classdef FunctionalBases
             end
         end
         
+        function [finterp,output] = tensorProductInterpolation(H,varargin)
+            % function [finterp,output] = tensorProductInterpolation(H,fun,grid)
+            % Interpolates a function on a product grid
+            % Returns a FunctionalTensor
+            %
+            % See also FullTensorProductFunctionalBasis.tensorProductInterpolation
+            H = FullTensorProductFunctionalBasis(H);
+            [finterp,output] = tensorProductInterpolation(H,varargin{:});
+        end
+        
         function [points,I] = magicPoints(f,x,J)
             % [points,I] = magicPoints(f,x)
             % Provides the magic points associated with the functional bases f

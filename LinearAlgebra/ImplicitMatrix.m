@@ -200,5 +200,15 @@ classdef ImplicitMatrix
             sz = size(A);
             x = ImplicitMatrix(sz,mtimes_right,mtimes_left);
         end
+        
+        function x = inverse(A)
+            % x = inverse(A)
+            % A: double, invertible matrix
+            % x: ImplicitMatrix such that x = A^{-1} computed with Matlab backslash
+            mtimes_right = @(x) A\x;
+            mtimes_left = @(x) (A.'\(x.')).';
+            sz = size(A);
+            x = ImplicitMatrix(sz,mtimes_right,mtimes_left);
+        end
     end
 end
