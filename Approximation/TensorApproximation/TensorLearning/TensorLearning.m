@@ -382,7 +382,7 @@ classdef TensorLearning < Learning
                     break
                 end
                 
-                if (s.testError && isfield(outputLocal,'testError') && ...
+                if (s.testError && ...
                         testErrors(i) < s.tolerance.onError) || ...
                         (isfield(outputLocal,'error') && ...
                         errors(i) < s.tolerance.onError)
@@ -542,14 +542,13 @@ classdef TensorLearning < Learning
         
         % NEWRANKSELECTION - Selection of a new rank in the adaptive algorithm
         %
-        % [f,newRank,enrichedNodes,tensorForInitialization] = NEWRANKSELECTION(s,f,output)
+        % [f,newRank,enrichedNodes,tensorForInitialization] = NEWRANKSELECTION(s,f)
         % s: TensorLearning
         % f: FunctionalTensor
-        % output: cell
         % newRank: 1-by-s.numberOfParameters integer
         % enrichedNodes: 1-by-N integer, with N the number of enriched nodes
         % tensorForInitialization: AlgebraicTensor
-        [f,newRank,enrichedNodes,tensorForInitialization] = newRankSelection(s,f,output);
+        [f,newRank,enrichedNodes,tensorForInitialization] = newRankSelection(s,f);
         
         % INITIALGUESSNEWRANK - Computation of the initial guess with the new selected rank
         %

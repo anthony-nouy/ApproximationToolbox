@@ -55,13 +55,13 @@ fprintf('\nt5 = outerProductEvalDiag(t1,t2,3,4) = \n'); disp(t5)
 % Outer product of the tensors t1 and t2 with evaluation of several diagonals, in the dimensions 2 and 3, and 5 and 4 respectively
 % The resulting tensor t6 is such that
 % t6(i1,k,l,i4,j1,j2,j3,j6) = t1(i1,k,l,i4)t2(j1,j2,j3,l,k,j6)
-t6 = outerProductEvalDiag(t1,t2,[2,3],[5 4],true);
-fprintf('\nt6 = outerProductEvalDiag(t1,t2,[2,3],[5 4],true) = \n'); disp(t6)
+t6 = outerProductEvalDiag(t1,t2,[2,3],[5,4],true);
+fprintf('\nt6 = outerProductEvalDiag(t1,t2,[2,3],[5,4],true) = \n'); disp(t6)
 
 %% Orthogonalization of a FullTensor
 
 % The tensor t7 is of same size and order at t4, but is such that its 
-% {3}-matricization, denoted by Mt7, verifies Mt7*Mt7.' = eye(sz.t4(3))
+% {3}-matricization, denoted by Mt7, verifies Mt7*Mt7.' = eye(t4.sz(3))
 t7 = orth(t4,3);
 fprintf('\nt7 = orth(t4,3) = \n'); disp(t7)
 

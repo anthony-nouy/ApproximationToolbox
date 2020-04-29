@@ -71,7 +71,7 @@ classdef LinearModelLearningSquareLoss < LinearModelLearning
         end
         
         function [x,output] = solve(s)
-            % SOLVE - Solution (Ordinary or Regularized) of the Least-Squares problem and cross-validation prodecure
+            % SOLVE - Solution (Ordinary or Regularized) of the Least-Squares problem and cross-validation procedure
             %
             % [x,output] = SOLVE(s)
             % s: LinearModelLearningSquareLoss
@@ -108,8 +108,7 @@ classdef LinearModelLearningSquareLoss < LinearModelLearning
                     if n==1
                         [x,output] = s.solveRegularizedLS();
                     else
-                        P = size(A,2);
-                        x = zeros(P,n);
+                        x = zeros(size(A,2),n);
                         for i=1:n
                             s.trainingData{2} = y(:,i);
                             [x(:,i),output_tmp] = s.solveRegularizedLS();
@@ -122,8 +121,7 @@ classdef LinearModelLearningSquareLoss < LinearModelLearning
                 if n == 1
                     [x,output] = s.solveBasisAdaptation();
                 else
-                    P = size(A,2);
-                    x = zeros(P,n);
+                    x = zeros(size(A,2),n);
                     for i=1:n
                         s.trainingData{2} = y(:,i);
                         [x(:,i),output_tmp] = s.solveBasisAdaptation();
@@ -155,7 +153,7 @@ classdef LinearModelLearningSquareLoss < LinearModelLearning
     
     methods (Hidden)
         function [x,output] = solveOLS(s)
-            % SOLVEOLS - Solution of the Ordinary Least-Squares (OLS) problem and cross-validation prodecure
+            % SOLVEOLS - Solution of the Ordinary Least-Squares (OLS) problem and cross-validation procedure
             %
             % [x,output] = SOLVEOLS(s)
             % s: LinearModelLearningSquareLoss
@@ -195,7 +193,7 @@ classdef LinearModelLearningSquareLoss < LinearModelLearning
         end
         
         function [x,output] = solveRegularizedLS(s)
-            % SOLVEREGULARIZEDLS - Solution of the Regularized Least-Squares problem and cross-validation prodecure
+            % SOLVEREGULARIZEDLS - Solution of the Regularized Least-Squares problem and cross-validation procedure
             %
             % [x,output] = SOLVEREGULARIZEDLS(s)
             % s: LinearModelLearningSquareLoss
@@ -248,7 +246,7 @@ classdef LinearModelLearningSquareLoss < LinearModelLearning
         end
         
         function [x,output] = solveBasisAdaptation(s)
-            % SOLVEBASISADAPTATION - Solution of the Least-Squares problem with working-set and cross-validation prodecure
+            % SOLVEBASISADAPTATION - Solution of the Least-Squares problem with working-set and cross-validation procedure
             %
             % [x,output] = SOLVEBASISADAPTATION(s)
             % s: LinearModelLearningSquareLoss
@@ -257,8 +255,7 @@ classdef LinearModelLearningSquareLoss < LinearModelLearning
             %
             % See also selectOptimalPath
             
-            A = s.basisEval;
-            P = size(A,2);
+            P = size(s.basisEval,2);
             if isempty(s.basisAdaptationPath)
                 solpath = true(P,P);
                 solpath = triu(solpath);
@@ -286,7 +283,7 @@ classdef LinearModelLearningSquareLoss < LinearModelLearning
             % output.solutionPathOLS: P-by-(m-1) double containing the regularization path of OLS solutions
             % output.optimalSolution: P-by-1 double containing the optimal solution x
             % output.delta: N-by-1 double containing the optimal residual
-            % output.deltaPath: N-by-(m-1) double containing the regularization path of residuals
+            % output.deltaPath: N-by-(m-1) double containing the regularization paths of the residuals
             
             if isempty(solpath)
                 [x,output] = s.solveOLS();
@@ -398,15 +395,15 @@ classdef LinearModelLearningSquareLoss < LinearModelLearning
             % s.errorEstimationType: type of cross-validation procedure ('leaveout' or 'kfold'), 'leaveout' by default
             %
             % For s.errorEstimationType = 'leaveout'
-            % Computes relative leave-one-out cross-validation error for coefficients matrix x
-            % using the fast leave-one-out cross-validation procedure [Cawlet & Talbot 2004] based on Bartlett matrix inversion formula (special case of Sherman-Morrison-Woodbury formula)
-            % if s.errorEstimationOptions.correction = true, Computes corrected relative leave-one-out cross-validation error for coefficients matrix x
+            % Compute the relative leave-one-out cross-validation error for the coefficients matrix x
+            % using the fast leave-one-out cross-validation procedure [Cawlet & Talbot 2004] based on the Bartlett matrix inversion formula (special case of the Sherman-Morrison-Woodbury formula)
+            % if s.errorEstimationOptions.correction = true, compute the corrected relative leave-one-out cross-validation error for the coefficients matrix x
             %
             % For s.errorEstimationType = 'kfold'
-            % Computes relative k-fold cross-validation error for coefficients matrix x
-            % using the fast k-fold cross-validation procedure based on Sherman-Morrison-Woodbury formula
-            % s.errorEstimationOptions.numberOfFolds: number of folds (only for k-fold cross-validation procedure), min(10,N) by default where N is the number of samples
-            % if s.errorEstimationOptions.correction = true, Computes corrected relative k-fold cross-validation error for coefficients matrix x
+            % Compute the relative k-fold cross-validation error for the coefficients matrix x
+            % using the fast k-fold cross-validation procedure based on the Sherman-Morrison-Woodbury formula
+            % s.errorEstimationOptions.numberOfFolds: number of folds (only for the k-fold cross-validation procedure), min(10,N) by default where N is the number of samples
+            % if s.errorEstimationOptions.correction = true, compute the corrected relative k-fold cross-validation error for the coefficients matrix x
             
             N = size(y,1);
             n = size(y,2);
@@ -441,7 +438,7 @@ classdef LinearModelLearningSquareLoss < LinearModelLearning
                 end
             end
             
-            % Compute absolute cross-validation error (cross-validation error estimate of mean-squared error),
+            % Compute the absolute cross-validation error (cross-validation error estimate of the mean-squared error),
             % also called mean predicted residual sum of squares (PRESS) or empirical mean-squared predicted residual
             if strcmp(cv,'leaveout') % if leave-one-out cross-validation
                 % Create a random partition of nearly equal size for leave-one-out cross-validation on N observations
@@ -454,8 +451,8 @@ classdef LinearModelLearningSquareLoss < LinearModelLearning
                     delta(:) = Inf;
                     return
                 end
-                % Compute predicted residuals using Bartlett matrix inversion formula
-                % (special case of Sherman-Morrison-Woodbury formula)
+                % Compute the predicted residuals using the Bartlett matrix inversion formula
+                % (special case of the Sherman-Morrison-Woodbury formula)
                 switch lower(linearSolvertype)
                     case '\'
                         T = sum(A'.*(C*A'),1)';
@@ -463,7 +460,7 @@ classdef LinearModelLearningSquareLoss < LinearModelLearning
                         T = sum(qA.^2,2);
                 end
                 delta = (y-A*x)./(1-T);
-                % Compute absolute cross-validation error
+                % Compute the absolute cross-validation error
                 err = sum(delta.^2,1)/N;
             elseif strcmp(cv,'kfold') % if k-fold cross-validation
                 % Create a random partition of nearly equal size for k-fold cross-validation on N observations
@@ -504,11 +501,11 @@ classdef LinearModelLearningSquareLoss < LinearModelLearning
                 error(['Cross-validation ' cv ' not implemented'])
             end
             
-            % Compute relative cross-validation error
+            % Compute the relative cross-validation error
             err = err./secondMoment; % err is divided by empirical second moment of y
             
-            % Compute corrected relative cross-validation error to reduce the sensitivity of error estimate to overfitting
-            % (non-corrected cross-validation error estimate underpredicts the error in L^2-norm (generalization error))
+            % Compute the corrected relative cross-validation error to reduce the sensitivity of the error estimate to overfitting
+            % (the non-corrected cross-validation error estimate underpredicts the error in L^2-norm (generalization error))
             if strcmpi(linearSolvertype, 'qr') && rcond(rA) < eps
                 s.errorEstimationOptions.correction = false;
             end

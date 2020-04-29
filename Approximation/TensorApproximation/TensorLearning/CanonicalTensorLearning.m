@@ -88,7 +88,6 @@ classdef CanonicalTensorLearning < TensorLearning
                     sini = s;
                     sini.rankAdaptation = false;
                     sini.algorithm = 'greedy';
-                    sini.basesEval = s.basesEval;
                     sini.initializationType = 'mean';
                     sini.alternatingMinimizationParameters.display = false;
                     sini.linearModelLearning.errorEstimation = false;
@@ -270,7 +269,7 @@ classdef CanonicalTensorLearning < TensorLearning
             slocal.rankAdaptation = false;
         end
         
-        function [f,newRank, enrichedNodes, tensorForInitialization] = newRankSelection(s,f,varargin)
+        function [f,newRank, enrichedNodes, tensorForInitialization] = newRankSelection(s,f)
             newRank = length(f.tensor.core.data) + 1;
             enrichedNodes = 1;
             tensorForInitialization = f;

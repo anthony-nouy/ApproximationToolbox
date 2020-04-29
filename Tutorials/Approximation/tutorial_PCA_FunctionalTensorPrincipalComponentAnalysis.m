@@ -45,7 +45,7 @@ switch choice
         fun.measure = X;
     case 3
         fprintf('Sinus of a sum\n')
-        d = 20;
+        d = 10;
         fun = vectorize('sin(x1+x2+x3+x4+x5+x6+x7+x8+x9+x10)');
         fun = UserDefinedFunction(fun,d);
         fun.evaluationAtMultiplePoints = true;
@@ -55,7 +55,7 @@ switch choice
         fun.store = true;
         fun.measure = X;
     case 4
-        fprintf('Composition of function\n')
+        fprintf('Composition of functions\n')
         d = 10;
         X = RandomVector(UniformRandomVariable(-1,1),d);
         tree = DimensionTree.balanced(d);
@@ -110,7 +110,6 @@ switch choice
         bases = FunctionalBases.duplicate(basis,d);
 end
 
-
 %% HOPCA (PCA for each dimension, provides reduced spaces)
 % PCA for each dimension to get principal subspaces
 fprintf('--- Higher order PCA ---- \n')
@@ -122,7 +121,7 @@ FPCA.bases = bases;
 [subbases,outputs] = FPCA.hopca(fun);
 fprintf('Number of evaluations = [%s]\n',num2str(cellfun(@(x) x.numberOfEvaluations,outputs)));
 szs =cellfun(@(x) cardinal(x),subbases);
-fprintf('Ranks {1,...,d} = [%s ]\n',num2str(szs));
+fprintf('Ranks {1,...,d} = [%s ]\n',num2str(szs(:).'));
 
 %% Approximation in Tucker Format
 % PCA for each dimension to get principal subspaces
@@ -134,7 +133,6 @@ FPCA = FunctionalTensorPrincipalComponentAnalysis();
 FPCA.PCASamplingFactor = 1;
 FPCA.PCAAdaptiveSampling = 1;
 FPCA.bases = bases;
-
 
 % prescribed ranks
 fprintf('\nPrescribed ranks\n')
@@ -152,7 +150,6 @@ fxtest = f(xtest);
 ytest  = fun(xtest);
 fprintf('Error = %d\n',norm(ytest-fxtest)/norm(ytest))
 
-
 % prescribed tolerance
 fprintf('\nPrescribed tolerance\n')
 tol = 1e-10;
@@ -168,8 +165,6 @@ xtest = random(X,10000);
 fxtest = f(xtest);
 ytest  = fun(xtest);
 fprintf('Error = %d\n',norm(ytest-fxtest)/norm(ytest))
-
-
 
 %% Approximation in Tree based format
 fprintf('--- Approximation in Tree based format ---- \n')
@@ -212,7 +207,6 @@ ytest  = fun(xtest);
 err = norm(ytest-fxtest)/norm(ytest);
 fprintf('Mean squared error = %d\n',err)
 
-
 %% Approximation in Tensor Train format
 fprintf('--- Approximation in Tensor Train format ---- \n')
 FPCA = FunctionalTensorPrincipalComponentAnalysis();
@@ -231,7 +225,6 @@ fprintf('Storage = %d\n',storage(f));
 fprintf('Prescribed TT-ranks = \n [%s]\n',num2str(FPCA.maxRank));
 ttranks = flip(f.tensor.ranks(f.tensor.isActiveNode));
 fprintf('TT-ranks = \n [%s]\n',num2str(ttranks(1:end-1)));
-
 
 xtest = random(X,1000);
 fxtest = f(xtest);

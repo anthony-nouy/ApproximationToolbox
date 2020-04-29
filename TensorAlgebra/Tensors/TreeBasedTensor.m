@@ -290,7 +290,8 @@ classdef TreeBasedTensor < AlgebraicTensor
                 
                 sigma = zeros(m,2);
                 x = xSigma;
-                for i = 1:m
+                i = 1;
+                while i <= m
                     probaA = x.ranks(x.tree.parent(nodes)).^2;
                     a = random(DiscreteRandomVariable(nodes(:),probaA/sum(probaA)));
                     
@@ -302,6 +303,7 @@ classdef TreeBasedTensor < AlgebraicTensor
                         
                         sigma(i,:) = [a,b];
                         x = permuteNodes(x,sigma(i,:),tol/(m+mStar));
+                        i = i+1;
                     end
                 end
                 
@@ -1938,6 +1940,7 @@ classdef TreeBasedTensor < AlgebraicTensor
         
         function C = zeros(varargin)
             % ZEROS - Creation of a tensor of size sz and tree-based rank ranks with zero entries
+            %
             % x = zeros(tree,ranks,sz,isActiveNode)
             % tree: DimensionTree
             % ranks: 1-by-tree.nbNodes integer
@@ -1945,6 +1948,30 @@ classdef TreeBasedTensor < AlgebraicTensor
             % isActiveNodes: 1-by-tree.nbNodes integer
             
             C = TreeBasedTensor.create(@zeros,varargin{:});
+        end
+        
+        function C = tensorTrain(cores, dims)
+            % TENSORTRAIN - Creation of a tensor in tensor-train format
+            %
+            % x = tensorTrain(cores, perm)
+            % cores: 1-by-d cell containing the cores of the tensor, each associated with one dimension
+            % dims: 1-by-d integer containing the dimension associated with each core
+            
+            d = length(cores);
+            T = DimensionTree.linear(d);
+            tensors = cell(1, T.nbNodes);
+            if nargin == 2
+                [~, invPerm] = sort(dims);
+                cores = cores(invPerm);
+            end
+            
+            dim2ind = T.dim2ind;
+            nod = dim2ind(1);
+            for dim = 1:d
+                tensors{nod} = cores{dim};
+                nod = T.parent(nod);
+            end
+            C = TreeBasedTensor(tensors, T);
         end
     end
     

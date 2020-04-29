@@ -34,11 +34,10 @@ classdef FunctionalTensorPrincipalComponentAnalysis
         display = true;
         PCASamplingFactor = 1;
         PCAAdaptiveSampling = false;
-        projectionType = 'interpolation' ;
+        projectionType = 'interpolation';
     end
     
     methods
-        
         function s = FunctionalTensorPrincipalComponentAnalysis()
             % Principal component analysis of multivariate functions
             % based on TensorPrincipalComponentAnalysis for algebraic
@@ -67,13 +66,11 @@ classdef FunctionalTensorPrincipalComponentAnalysis
 
         end
         
-        
         function [fpc,outputs] = hopca(FPCA,fun)
             % [fpc,output] = hopca(FPCA,fun)
             % Returns the set of alpha-principal components of a function, for all alpha in {1,2,...,d}.
             %
             % fun: function of d variables
-            % bases : FunctionalBases
             %
             % fpc: 1-by-d cell containing the alpha principal components
             % outputs: 1-by-d cell containing the outputs of the method alphaPrincipalComponents
@@ -97,9 +94,7 @@ classdef FunctionalTensorPrincipalComponentAnalysis
         
         function [f,output] = TuckerApproximation(FPCA,fun)
             % [f,outputs] = TuckerApproximation(FPCA,fun)
-            % Approximation of a function of d variables
-            % in Tucker format based on
-            % Principal Component Analysis
+            % Approximation of a function of d variables in Tucker format based on a Principal Component Analysis
             %
             % fun: function of d variables
             % sz : size of the tensor
@@ -122,9 +117,7 @@ classdef FunctionalTensorPrincipalComponentAnalysis
         
         function [f,output] = TTApproximation(FPCA,fun)
             % [f,outputs] = TTApproximation(FPCA,fun)
-            % Approximation of a function of d variables
-            % in Tensor Train format based on
-            % Principal Component Analysis
+            % Approximation of a function of d variables in Tensor Train format based on a Principal Component Analysis
             %
             % fun: function of d variables
             % f : a function in tree based format with a linear tree
@@ -146,9 +139,7 @@ classdef FunctionalTensorPrincipalComponentAnalysis
         
         function [f,output] = TBApproximation(FPCA,fun,varargin)
             % [f,outputs] = TBApproximation(FPCA,fun,tree,isActiveNode)
-            % Approximation of a function in
-            % Tree Based tensor format based on
-            % Principal Component Analysis
+            % Approximation of a function in Tree Based tensor format based on a Principal Component Analysis
             %
             % fun: function of d variables
             % tree: DimensionTree
@@ -167,13 +158,10 @@ classdef FunctionalTensorPrincipalComponentAnalysis
             [FPCA,tfun,sz,tpca] = prepare(FPCA,fun); 
             [t,output] = TBApproximation(tpca,tfun,sz,varargin{:});
             f = project(FPCA,t);
-            
         end
-        
     end
     
     methods (Hidden) 
-        
         function [FPCA,tfun,sz,TPCA] = prepare(FPCA,fun)
             FPCA.bases = FunctionalBases(FPCA.bases);
             % creating the tensor product grid
@@ -222,7 +210,7 @@ classdef FunctionalTensorPrincipalComponentAnalysis
         function f = project(FPCA,t)
             % takes an AlgebraicTensor t whose entries are the values of the function
             % on a product grid, and returns a FunctionalTensor obtained by
-            % applying projections obtained by the method
+            % applying the projections obtained by the method
             % projectionOperators.
             
             P = projectionOperators(FPCA); 
@@ -238,8 +226,6 @@ classdef FunctionalTensorPrincipalComponentAnalysis
                 end
             end
             f = FunctionalTensor(t,FPCA.bases);
-            
         end
-        
     end
 end

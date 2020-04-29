@@ -153,7 +153,7 @@ classdef TreeBasedTensorLearning < TensorLearning
             
             if isa(s.lossFunction,'SquareLossFunction')
                 b = s.trainingData{2};
-                s.linearModelLearning{mu}.sharedCoefficients = (mu ~= s.tree.root);
+                s.linearModelLearning{mu}.sharedCoefficients = (mu ~= t.root);
             elseif isa(s.lossFunction,'DensityL2LossFunction')
                 if ~iscell(s.trainingData)
                     b = [];
@@ -312,7 +312,7 @@ classdef TreeBasedTensorLearning < TensorLearning
             %
             % p = CREATEBASISADAPTATIONPATH(s,r,alpha)
             % s: TreeBasedTensorLearning
-            % r: 1-by-s.numberOfParameters integer
+            % r: 1-by-s.tree.nbNodes integer
             % alpha: 1-by-1 integer
             % p: logical matrix
             
@@ -331,10 +331,7 @@ classdef TreeBasedTensorLearning < TensorLearning
                     ch = nonzeros(t.children(:,alpha));
                     if all(s.isActiveNode(ch))
                         cha = ch(s.isActiveNode(ch));
-                        chna = setdiff(ch,cha);
-                        [~,J] = find(t.dim2ind == chna);
-                        szna = cellfun(@(x) size(x,1),s.basesAdaptationPath(J));
-                        p = true(prod([r([alpha ; cha]), szna(:).']),1); % No working set
+                        p = true(prod(r([alpha ; cha])),1); % No working set
                     else
                         chA = ch(s.isActiveNode(ch));
                         chNa = ch(~s.isActiveNode(ch));
@@ -343,8 +340,7 @@ classdef TreeBasedTensorLearning < TensorLearning
                         palpha(t.childNumber(chNa)) = s.basesAdaptationPath(J);
                         palpha(t.childNumber(chA)) = arrayfun(@(x) ones(x,1), r(chA), 'UniformOutput', false);
                         ralpha = r(alpha);
-                        p = permute(palpha{end},[3,1,4,2]);
-                        p = reshape(p,[size(p,2)*1,size(p,4)]);
+                        p = palpha{end};
                         for i = length(palpha)-1:-1:1
                             p = kron(p,palpha{i});
                         end
@@ -395,7 +391,7 @@ classdef TreeBasedTensorLearning < TensorLearning
             svmin = cellfun(@min,sv(1:end));
             svmin(svmin/norm(tensorForSelection) < eps) = NaN;
             
-            % Removing nodes that cannot be enriched because their rank
+            % Remove nodes that cannot be enriched because their rank
             % is equal to the product of the ranks of their children,
             % and their children cannot be enriched themselves
             t = tensorForSelection.tree;
@@ -560,7 +556,7 @@ function f = enrichedEdgesToRanksRandom(f,newRank)
 % ENRICHEDEDGESTORANKSRANSOM - Enrichment of the ranks of specified edges of the tensor f using random additions for each child / parent couple of the enriched edges
 % f = ENRICHEDEDGESTORANKSRANSOM(f,newRank)
 % f: TreeBasedTensor
-% newRank: 1-by-s.numberOfParameters integer
+% newRank: 1-by-s.tree.nbNodes integer
 
 f.isOrth = false;
 t = f.tree;
@@ -596,11 +592,11 @@ end
 end
 
 function [r,d] = makeRanksAdmissible(f,r)
-% MAKERANKSADMISSIBLE - Adjustment of the ranks to make the associated tree-based tensor f rank-admissible, by enriching new edges associated to nodes in d until all the rank admissibility conditions are met
+% MAKERANKSADMISSIBLE - Adjustment of the ranks to make the associated tree-based tensor f rank-admissible, by enriching new edges associated with nodes of the tree until all the rank admissibility conditions are met
 %
 % [r,d] = MAKERANKSADMISSIBLE(f,r)
 % f: TreeBasedTensor
-% r: 1-by-s.numberOfParameters integer
+% r: 1-by-s.tree.nbNodes integer
 % d: 1-by-N integer, with N the number of nodes whose rank has been increased
 
 % Do not increase the ranks of leaf nodes with rank equal to the dimension of the approximation space

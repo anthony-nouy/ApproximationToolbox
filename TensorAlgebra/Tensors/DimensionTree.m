@@ -427,7 +427,7 @@ classdef DimensionTree
             % nod: double
 
             dims = sort(dims);
-            nod = find(cellfun(@(x) isequal(x,dims),T.dims));
+            nod = find(cellfun(@(x) isequal(sort(x),dims),T.dims));
         end
     end
     

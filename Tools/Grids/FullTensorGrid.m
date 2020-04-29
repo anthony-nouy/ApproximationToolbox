@@ -109,7 +109,7 @@ classdef FullTensorGrid < TensorGrid
     
     methods (Static)
         function G = random(X,n)
-            % Generation of a random FullTensorGrid grom a RandomVector
+            % Generation of a random FullTensorGrid from a RandomVector
             %
             % G = random(X,n)
             % generate the tensor product of grids of d grids of size n(k)

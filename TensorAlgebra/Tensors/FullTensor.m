@@ -457,6 +457,8 @@ classdef FullTensor < AlgebraicTensor
                     k = k+1;
                 end
             end
+            x.isOrth = false;
+            x.orthDim = [];
         end
         
         function c = timesMatrixEvalDiag(c,H,dims)
@@ -531,7 +533,10 @@ classdef FullTensor < AlgebraicTensor
                 szx0(xDims) = [];
                 szy0(yDims) = [];
                 x = reshape(x,[szx0 szy0]);
+                x.isOrth = false;
+                x.orthDim = [];
             end
+            
         end
         
         function z = timesTensorEvalDiag(x,y,xDims,yDims,xDiagDims,yDiagDims)

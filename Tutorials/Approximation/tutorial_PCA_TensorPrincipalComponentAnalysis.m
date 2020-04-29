@@ -28,7 +28,7 @@ clearvars; clc; close all
 d = 5;
 n=10;
 sz = repmat(n,1,d);
-fun = @(i) cos(i(:,1)/sz(1))+1./(1+(i(:,2)/sz(2)).^2+(i(:,3)/sz(3)).^4)+i(:,3)/(3);
+fun = @(i) cos(i(:,1)/sz(1))+1./(1+(i(:,2)/sz(2)).^2+(i(:,3)/sz(3)).^4)+i(:,3)/sz(3);
 
 fun = UserDefinedFunction(fun,d);
 fun.evaluationAtMultiplePoints = true;
@@ -56,7 +56,6 @@ fprintf('Number of evaluations \n= [%s]\n',num2str(cellfun(@(x) x.numberOfEvalua
 fprintf('Ranks {1,...,d} \n= [%s]\n',num2str(cellfun(@(x) size(x,2),subbases)));
 
 %% Approximation in Tucker Format
-
 fprintf('--- Approximation in Tucker format ---- \n')
 TPCA = TensorPrincipalComponentAnalysis();
 TPCA.PCASamplingFactor = 1;
@@ -89,7 +88,6 @@ xtest = random(X,10000);
 fxtest = f.evalAtIndices(xtest);
 ytest  = fun(xtest);
 fprintf('Error = %d\n',norm(ytest-fxtest)/norm(ytest))
-
 
 %% Approximation in Tree based format
 fprintf('--- Approximation in Tree based format ---- \n')
@@ -132,7 +130,7 @@ err = norm(ytest-fxtest)/norm(ytest);
 fprintf('Mean squared error = %d\n',err)
 
 % prescribed tolerance (adaptive sampling)
-fprintf('\nPrescribed tolerance\n')
+fprintf('\nPrescribed tolerance (adaptive sampling)\n')
 TPCA.tol = tol;
 TPCA.PCAAdaptiveSampling = 1;
 TPCA.PCASamplingFactor = 1.2;
@@ -148,8 +146,6 @@ fxtest = f.evalAtIndices(xtest);
 ytest  = fun(xtest);
 err = norm(ytest-fxtest)/norm(ytest);
 fprintf('Mean squared error = %d\n',err)
-
-
 
 %% Approximation in Tensor Train format
 fprintf('--- Approximation in Tensor Train format ---- \n')

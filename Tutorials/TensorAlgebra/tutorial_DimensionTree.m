@@ -28,7 +28,7 @@ plot(T)
 title('Nodes indices')
 subplot(1,2,2)
 plotDims(T,1:T.nbNodes)
-title('Nodes dimensions')
+title('Nodes dimensions at the leaves')
 
 %% Random dimension tree
 d=10;
@@ -41,7 +41,7 @@ plot(T)
 title('Nodes indices')
 subplot(1,2,2)
 plotDims(T)
-title('Nodes dimensions at leaves')
+title('Nodes dimensions at the leaves')
 
 %% Balanced dimension tree
 d = 10;
@@ -52,7 +52,7 @@ plot(T)
 title('Nodes indices')
 subplot(1,2,2)
 plotDims(T)
-title('Nodes dimensions at leaves')
+title('Nodes dimensions at the leaves')
 
 figure(2)
 clf
@@ -60,12 +60,12 @@ subplot(1,2,1)
 plot(T)
 hold on
 plotNodes(T,ascendants(T,4),'ob','markerfacecolor','b')
-title('ascendants of node 4')
+title('Ascendants of node 4')
 subplot(1,2,2)
 plot(T)
 hold on
 plotNodes(T,descendants(T,4),'ob','markerfacecolor','b')
-title('descendants of node 4')
+title('Descendants of node 4')
 
 %% Extracting a subtree
 [ST,nod] = subDimensionTree(T,4);

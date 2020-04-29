@@ -43,9 +43,9 @@ classdef DiscreteRandomVariable < RandomVariable
             if nargin==1
                 probabilities = repmat(1/N,N,1);
             elseif numel(probabilities)~=N
-                error('arguments must have the same size')
+                error('The arguments must have the same size.')
             elseif ~all(probabilities>=0)
-                error('all probabilities should be >=0')
+                error('All the probabilities should be >= 0.')
             end
             X.probabilities = probabilities(:);
             if abs(sum(X.probabilities)-1) > eps
@@ -146,7 +146,8 @@ classdef DiscreteRandomVariable < RandomVariable
             x=repmat(reshape(x,1,M),N,1);
             v=repmat(X.values(:),1,M);
             w=repmat(X.probabilities(:),1,M);
-            c(:) = sum(w(v<=x),1);
+            w(v>x) = 0;
+            c(:) = sum(w,1);
         end
         
         function c = icdf(X,p)
@@ -173,13 +174,13 @@ classdef DiscreteRandomVariable < RandomVariable
         function m = mean(X)
             % m = mean(X)
             
-            m= X.probabilities'*X.values;
+            m = X.probabilities'*X.values;
         end
         
         function v = var(X)
             % v = var(X)
             
-            v=X.probabilities*X.values.^2-mean(X).^2;
+            v = X.probabilities'*X.values.^2 - mean(X).^2;
         end
         
         function [m,v] = randomVariableStatistics(X)

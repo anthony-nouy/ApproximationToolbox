@@ -34,29 +34,27 @@ classdef TensorPrincipalComponentAnalysis
         maxRank = Inf; % maximum rank
     end
     
-    
     methods
-        
         function s = TensorPrincipalComponentAnalysis()
             % function s = TensorPrincipalComponentAnalysis()
             % Principal component analysis of an algebraic tensor
             %
-            % TPCA.maxRank: array containing the maximum alpha-ranks (length depends on the format)
+            % TPCA.maxRank: array containing the maximum alpha-ranks (the length depends on the format)
             % If numel(TPCA.maxRank)=1, use the same value for all alpha
-            % Set TPCA.maxRank = inf for prescribing the precision.
+            % Set TPCA.maxRank = inf to prescribe the precision.
             % 
-            % TPCA.tol : array containing the prescribed relative precisions (length depends on the format)
+            % TPCA.tol : array containing the prescribed relative precisions (the length depends on the format)
             % If numel(TPCA.tol)=1, use the same value for all alpha
-            % Set TPCA.tol = inf for prescribing the rank.
+            % Set TPCA.tol = inf to prescribe the rank.
             %            %
             % TPCA.PCASamplingFactor : factor for determining the number 
-            %    of samples N for the estimation of principal components (1 by default)
+            %    of samples N for the estimation of the principal components (1 by default)
             %         
             %            - if prescribed precision, N = TPCA.PCASamplingFactor*N_alpha
-            %            - if prescribed rank, N=TPCA.PCASamplingFactor*t
+            %            - if prescribed rank, N = TPCA.PCASamplingFactor*t
             %
-            % s.PCAAdaptiveSampling (true or false): adaptive sampling for 
-            %       determining the principal components with prescribed precision
+            % s.PCAAdaptiveSampling (true or false): adaptive sampling to 
+            %       determine the principal components with prescribed precision
         end
         
         function [pc,output] = alphaPrincipalComponents(TPCA,fun,sz,alpha,tol,Balpha,Ialpha)
@@ -69,7 +67,7 @@ classdef TensorPrincipalComponentAnalysis
             %
             % It evaluates f_alpha on the product of a set of indices in dimension
             % alpha (of size Nalpha) and a set of random indices (N samples) in the complementary dimensions.
-            % Then, it computes approximations of alpha-principal components
+            % Then, it computes approximations of the alpha-principal components
             % in a given basis phi_1(i_alpha) ... phi_Nalpha(i_alpha)
             %
             % If t is an integer, t is the rank (number of principal components)
@@ -80,7 +78,7 @@ classdef TensorPrincipalComponentAnalysis
             % sz : size of the tensor
             % alpha: array containing a tuple in {1,...,d}
             % t: number of principal components or a positive number <1 (tolerance)
-            % Ialpha: array of size N_alpha-by-#alpha containing N_alpha tuple i_alpha
+            % Ialpha: array of size N_alpha-by-#alpha containing N_alpha tuples i_alpha
             % Balpha: array of size N_\alpha-by-N_\alpha whose i-th column is the evaluation of phi_i at the
             % set of indices i_alpha in Ialpha.
             %
@@ -101,19 +99,18 @@ classdef TensorPrincipalComponentAnalysis
                 N = TPCA.PCASamplingFactor * tol;
             end
             
-            N=ceil(N);
+            N = ceil(N);
             
             Xnotalpha = RandomVector(X.randomVariables(notalpha));
             
             Inotalpha = random(Xnotalpha,N);
             
-            notalpha = setdiff(1:d,alpha);
-            [~,I]=ismember(1:d,[alpha,notalpha]);
+            [~,I] = ismember(1:d,[alpha,notalpha]);
             
             if tol < 1 && TPCA.PCAAdaptiveSampling
                 A = FullTensor(zeros(size(Ialpha,1),0),2,[size(Ialpha,1),0]);
                 for k=1:N
-                    grid  = FullTensorGrid({Ialpha,Inotalpha(k,:)});
+                    grid = FullTensorGrid({Ialpha,Inotalpha(k,:)});
                     productgrid = array(grid);
                     Ak = Balpha\fun(productgrid(:,I));
                     A.data = [A.data,Ak];
@@ -123,9 +120,7 @@ classdef TensorPrincipalComponentAnalysis
                     end
                 end
                 output.numberOfEvaluations = size(Ialpha,1)*k;
-                
             else
-                
                 grid = FullTensorGrid({Ialpha,Inotalpha});
                 productgrid=array(grid);
                 A = fun(productgrid(:,I));
@@ -134,14 +129,11 @@ classdef TensorPrincipalComponentAnalysis
                 A = FullTensor(A,2,[size(Balpha,1),N]);
                 [pc,sv] = principalComponents(A,tol);
                 output.numberOfEvaluations = size(Ialpha,1)*N;
-                
             end
                         
             output.sv = sv;
             output.samples = productgrid;
-            
         end
-        
         
         function [fpc,outputs] = hopca(TPCA,fun,sz)
             % [fpc,output] = hopca(TPCA,fun,sz)
@@ -161,9 +153,7 @@ classdef TensorPrincipalComponentAnalysis
             %
             % For other options, 
             % See also TensorPrincipalComponentAnalysis.TensorPrincipalComponentAnalysis
- 
-            
-            
+
             d = length(sz);
             
             fpc = cell(1,d);
@@ -181,7 +171,6 @@ classdef TensorPrincipalComponentAnalysis
                 error('maxRank should be a scalar or an array of length d')
             end
             
-            
             for alpha = 1:d
                 Ialpha = (1:sz(alpha))';
                 Balpha = speye(sz(alpha));
@@ -189,15 +178,11 @@ classdef TensorPrincipalComponentAnalysis
                 [fpc{alpha},outputs{alpha}] = ...
                     TPCA.alphaPrincipalComponents(fun,sz,alpha,tolalpha,Balpha,Ialpha);
             end
-            
-            
         end
 
         function [f,output] = TuckerApproximation(TPCA,fun,sz)
             % [f,outputs] = TuckerApproximation(TPCA,fun,sz)
-            % Approximation of a tensor of order d 
-            % in Tucker format based on
-            % Principal Component Analysis
+            % Approximation of a tensor of order d in Tucker format based on a Principal Component Analysis
             %
             % fun: function of d variables i_1,...,i_d which returns the entries of the tensor
             % sz : size of the tensor
@@ -236,9 +221,7 @@ classdef TensorPrincipalComponentAnalysis
         
         function [f,output] = TTApproximation(TPCA,fun,sz)
             % [f,outputs] = TTApproximation(TPCA,fun,sz)
-            % Approximation of a tensor of order d 
-            % in Tensor Train format based on
-            % Principal Component Analysis
+            % Approximation of a tensor of order d in Tensor Train format based on a Principal Component Analysis
             %
             % fun: function of d variables i_1,...,i_d which returns the entries of the tensor
             % sz : size of the tensor
@@ -284,9 +267,7 @@ classdef TensorPrincipalComponentAnalysis
         
         function [f,output] = TBApproximation(TPCA,fun,sz,tree,isActiveNode)
             % [f,outputs] = TBApproximation(TPCA,fun,sz,tree,isActiveNode)
-            % Approximation of a tensor in 
-            % Tree Based tensor format based on
-            % Principal Component Analysis
+            % Approximation of a tensor in Tree Based tensor format based on a Principal Component Analysis
             %
             % fun: function of d variables i_1,...,i_d which returns the entries of the tensor
             % sz : size of the tensor
@@ -324,9 +305,7 @@ classdef TensorPrincipalComponentAnalysis
             elseif length(TPCA.maxRank)>1 && length(TPCA.maxRank)~= tree.nbNodes
                 error('maxRank should be a scalar or an array of length tree.nbNodes')
             end
-            
 
-            
             grids = cell(1,d);
             alphaBasis = cell(1,tree.nbNodes);
             alphaGrids = cell(1,tree.nbNodes);
@@ -375,8 +354,7 @@ classdef TensorPrincipalComponentAnalysis
                         TPCA.alphaPrincipalComponents(fun,sz,tree.dims{alpha},tolalpha,Balpha,alphaGrids{alpha});
                     samples{alpha} = outputs{alpha}.samples;
                     szalpha = [cellfun(@(x)size(x,2),alphaBasis(Salpha)),size(pcalpha,2)];
-                    tensors{alpha} = pcalpha;
-                    tensors{alpha} = FullTensor(tensors{alpha},length(Salpha)+1,szalpha);
+                    tensors{alpha} = FullTensor(pcalpha,length(Salpha)+1,szalpha);
                     
                     Balpha = Balpha*pcalpha;
                     Ialpha= magicIndices(Balpha);
@@ -389,7 +367,7 @@ classdef TensorPrincipalComponentAnalysis
                 end
             end
             
-            alpha=tree.root;
+            alpha = tree.root;
             Salpha = nonzeros(tree.children(:,alpha))';
             Balpha = TensorPrincipalComponentAnalysis.tensorProductBalpha(alphaBasis(Salpha));
             Ialpha = array(FullTensorGrid(alphaGrids(Salpha)));
@@ -412,18 +390,13 @@ classdef TensorPrincipalComponentAnalysis
             output.alphaGrids = alphaGrids;
             output.outputs = outputs;
         end
-        
-        
-        
     end
     
-    
     methods (Static,Hidden)
-        
         function B = tensorProductBalpha(Bs)
             % Bs : cell containing s matrices B1 , ... , Bs 
             % where Bi is a n(i)-by-r(i) matrix
-            % B : matrix of size prod(n)-by-prod(r) matrix whose entry 
+            % B : matrix of size prod(n)-by-prod(r) whose entries are
             % B(I , J) = B1(i_1,j_1) ... Bs(i_s,j_s)
             % with I = (i_1,...,is) and J = (j1,...,js)
             
@@ -432,10 +405,8 @@ classdef TensorPrincipalComponentAnalysis
             for k=2:length(Bs)
                 B = timesTensor(B,Bs{k},[],[]);
             end            
-            B = permute(B,[1:2:B.order-1,2:2:B.order]);
-            B = reshape(B,[prod(B.sz(1:B.order/2)),prod(B.sz(B.order/2+1:end))]);
+            B = matricize(B, 1:2:B.order-1);
             B = B.data;
         end
-        
     end
 end
