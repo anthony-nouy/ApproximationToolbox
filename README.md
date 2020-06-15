@@ -2,4 +2,4 @@ ApproximationToolbox features low-rank tensors (including canonical, tensor-trai
 
 **Cite as**: 
 Nouy Anthony, Grelier Erwan and Giraldi Loic. (2020, February 7). ApproximationToolbox. Zenodo. 
-[http://doi.org/10.5281/zenodo.3653971](https://doi.org/10.5281/zenodo.3653971)
+[http://doi.org/10.5281/zenodo.3653970](https://doi.org/10.5281/zenodo.3653970)
