@@ -213,7 +213,7 @@ classdef LinearModelLearningSquareLoss < LinearModelLearning
                     A_OMP = A*spdiags(1./D(:),0,length(D),length(D));
                     % A_OMP = A./repmat(D,[N,1]);
                     [x,solpath] = mexOMP(full(y),full(A_OMP),param);
-                    x = spdiags(D(:),0,length(D),length(D))*x;
+                    x = spdiags(D(:),0,length(D),length(D))\x;
                     x = full(x);
                 case 'l1'
                     [x,solpath] = mexLasso(full(y),full(A),param);
@@ -240,7 +240,25 @@ classdef LinearModelLearningSquareLoss < LinearModelLearning
             end
             
             if s.errorEstimation && ~exist('output','var')
-                output.error = Inf;
+                switch s.errorEstimationType
+                    case 'residuals'
+                        output.delta = y-A*x;
+                        err = sum(output.delta.^2,1)/length(y);
+                        err = err./(moment(y,2,1)+mean(y,1).^2);
+                        output.error = err;
+                    otherwise
+                        secondMoment = moment(y,2,1)+mean(y,1).^2;
+                        I = find(x);
+                        A = A(:,I);
+                        switch lower(s.linearSolver)
+                            case '\'
+                                B = A'*A;
+                                [output.error,output.delta] = s.computeCVError(y,secondMoment,A,x(I),'\',inv(B));
+                            case 'qr'
+                                [qA,rA] = qr(A,0);
+                                [output.error,output.delta] = s.computeCVError(y,secondMoment,A,x(I),'qr',qA,rA);
+                        end
+                end
             end
             output.flag = 2;
         end
@@ -284,12 +302,7 @@ classdef LinearModelLearningSquareLoss < LinearModelLearning
             % output.optimalSolution: P-by-1 double containing the optimal solution x
             % output.delta: N-by-1 double containing the optimal residual
             % output.deltaPath: N-by-(m-1) double containing the regularization paths of the residuals
-            
-            if isempty(solpath)
-                [x,output] = s.solveOLS();
-                return
-            end
-            
+
             A = s.basisEval;
             y = s.trainingData{2};
             
@@ -321,6 +334,11 @@ classdef LinearModelLearningSquareLoss < LinearModelLearning
             delta(I) = [];
             pattern(:,I) = [];
             solpath(:,I) = [];
+            
+            if isempty(solpath)
+                [x,output] = s.solveOLS();
+                return
+            end
             
             for i=1:size(pattern,2)
                 ind = pattern(:,i);
@@ -422,10 +440,10 @@ classdef LinearModelLearningSquareLoss < LinearModelLearning
             
             cv = s.errorEstimationType;
             
-            if nargin<5 && P>N
+            if nargin<=5 && P>N
                 C = inv(A'*A);
                 linearSolvertype = '\';
-            elseif nargin<5
+            elseif nargin<=5
                 [qA,rA] = qr(A,0);
                 linearSolvertype = 'qr';
             else
@@ -468,7 +486,7 @@ classdef LinearModelLearningSquareLoss < LinearModelLearning
                 cvp = cvpartition(N,'kfold',min(k,N));
                 % Check whether there are enough samples when performing ordinary least-squares minimization
                 if any(cvp.TrainSize<P)
-                    % warning('Not egough samples for performing OLS on the training set.')
+                    % warning('Not enough samples for performing OLS on the training set.')
                     err(:) = Inf;
                     delta(:) = Inf;
                     return

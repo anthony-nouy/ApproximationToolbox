@@ -65,6 +65,8 @@ s.alternatingMinimizationParameters.oneByOneFactor = false;
 s.alternatingMinimizationParameters.innerLoops = 2;
 s.alternatingMinimizationParameters.random = false;
 s.rankAdaptationOptions.maxIterations = 20;
+s.modelSelection = true;
+s.modelSelectionOptions.type = 'testError';
 
 [f,outputCanonical] = s.solve();
 
@@ -94,20 +96,17 @@ s.rankAdaptationOptions.maxIterations = 20;
 s.treeAdaptation = true;
 s.treeAdaptationOptions.maxIterations = 100;
 s.treeAdaptationOptions.tolerance = 1e-8;
+s.modelSelection = true;
+s.modelSelectionOptions.type = 'testError';
 
 [f,outputTensorTrain] = s.solve();
-
-if s.rankAdaptation && isfield(outputTensorTrain,'testErrorIterations')
-    [~,I] = min(outputTensorTrain.testErrorIterations);
-    f = outputTensorTrain.iterates{I};
-end
 
 if ~isa(f,'FunctionalTensor')
     f = FunctionalTensor(f,H);
 end
 
 if isfield(outputTensorTrain,'treeAdaptationIterations')
-    perm = outputTensorTrain.treeAdaptationIterations{I};
+    perm = outputTensorTrain.treeAdaptationIterations{outputTensorTrain.selectedModelNumber};
 else
     perm = 1:f.tensor.order;
 end

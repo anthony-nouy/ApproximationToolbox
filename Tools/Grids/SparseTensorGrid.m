@@ -29,7 +29,6 @@ classdef SparseTensorGrid < TensorGrid
     end
     
     methods
-        
         function G = SparseTensorGrid(T,indices,varargin)
             % Constructor for the class SparseTensorGrid
             %
@@ -49,9 +48,8 @@ classdef SparseTensorGrid < TensorGrid
             G.indices = indices;
         end
         
-        
         function n = numel(G)
-            n = numel(G.indices);
+            n = cardinal(G.indices);
         end
         
         function x = array(G)

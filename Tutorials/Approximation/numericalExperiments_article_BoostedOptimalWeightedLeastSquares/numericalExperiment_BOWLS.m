@@ -186,7 +186,7 @@ switch choice
         xIc = gaussIntegrationRule(RV,m);
         Ic = basis.interpolate(fun, xIc.points);
     case 2
-        xIc = chebychevPoints(m);
+        xIc = chebyshevPoints(m);
         Ic = basis.interpolate(fun, xIc);
 end
 xtest = random(RV,1000);

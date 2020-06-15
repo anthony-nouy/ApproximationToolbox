@@ -60,13 +60,13 @@ classdef Function
                 xNew = x(~I,:);
                 if ~isempty(xNew)
                     yNew = f.eval(xNew);
-                    y(~I,:) = yNew;
+                    y(~I,:) = yNew(:,:);
                     f.xStored = [f.xStored;xNew];
-                    f.yStored = [f.yStored;yNew];
+                    f.yStored = [f.yStored;yNew(:,:)];
                 end
                 y = reshape(y,[size(y,1),f.outputSize]);
                 if prod(f.outputSize)~=1
-                    f.yStored = reshape(f.yStored,[size(y,1),f.outputSize]);
+                    f.yStored = reshape(f.yStored,[size(f.yStored,1),f.outputSize]);
                 end
             else
                 y = f.eval(x);
@@ -101,7 +101,7 @@ classdef Function
             
             s = truncatedSupport(f.measure);
             
-            if ndims(f)>2
+            if f.dim > 2
                 error('The function should be a bivariate function, use partial evaluation for higher-dimensional function.')
             end
             
@@ -180,7 +180,7 @@ classdef Function
         
         function fx = evalOnTensorGrid(f,x)
             % fx = evalOnTensorGrid(f,x)
-            % Evaluation of f on grid x
+            % Evaluation of f on a grid x
             % f: Function
             % x: TensorGrid
             % fx: AlgebraicTensor

@@ -78,7 +78,7 @@ classdef DiscreteRandomVariable < RandomVariable
         
         function varargout = plot(X,type,varargin)
             % varargout = plot(X,type)
-            % Plots the desired quantity, chosen between 'pdf', 'cdf' of 'icdf'.
+            % Plots the desired quantity, chosen between 'pdf', 'cdf' or 'icdf'.
             % X: RandomVariable
             % type: char ('pdf' or 'cdf' or 'icdf')
             

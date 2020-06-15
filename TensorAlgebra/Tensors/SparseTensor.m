@@ -103,7 +103,7 @@ classdef SparseTensor < AlgebraicTensor
         function y = full(x)
             y = zeros(x.sz);
             y = FullTensor(y);
-            I = sub2ind(x.sz,x.indices);
+            I = sub2ind(x.indices, x.sz);
             y.data(I) = x.data;
         end
         
@@ -258,7 +258,6 @@ classdef SparseTensor < AlgebraicTensor
         end
         
         function y = timesMatrixEvalDiag(x,H)
-            
             y = H{1}(:,x.indices.array(:,1));
             for k=2:x.order
                 y = y.*H{k}(:,x.indices.array(:,k));

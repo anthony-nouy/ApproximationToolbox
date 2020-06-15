@@ -80,6 +80,9 @@ classdef TensorLearning < Learning
             
             s@Learning(varargin{:});
             s.linearModelLearning = linearModel(Learning(s.lossFunction));
+            
+            s.modelSelection = false;
+            s.modelSelectionOptions.type = 'testError'; % Other choices: slopeHeuristic, cvError
         end
         
         function [f,output] = solve(s, varargin)
@@ -99,6 +102,13 @@ classdef TensorLearning < Learning
                     ~isa(s.lossFunction, 'SquareLossFunction'))
                 error(['Solver not implemented for vector-valued functions approximation, ', ...
                     'use TreeBasedTensorLearning with a SquareLossFunction instead.'])
+            end
+            
+            if s.outputDimension > 1 && isfield(s.rankAdaptationOptions,'type') && ...
+                    strcmpi(s.rankAdaptationOptions.type, 'inner')
+                warning(['Inner rank adaptation not implemented for outputDimension ', ...
+                    'greater than 1, disabling it.'])
+                s.rankAdaptationOptions = rmfield(s.rankAdaptationOptions, 'type');
             end
             
             if s.warnings.orthonormalityWarningDisplay && (isempty(s.bases) || ...
@@ -165,15 +175,31 @@ classdef TensorLearning < Learning
                 s.basesEvalTest = cellfun(@full,s.basesEvalTest,'uniformoutput',false);
             end
             
+            if s.modelSelection
+                s.storeIterates = true;
+                if strcmpi(s.modelSelectionOptions.type, 'testError') && ~s.testError
+                    warning('Cannot perform test error based model selection, disabling it.')
+                    s.modelSelection = false;
+                elseif strcmpi(s.modelSelectionOptions.type, 'cvError') && ~s.errorEstimation
+                    s.errorEstimation = true;
+                end
+            end
+            
             if s.rankAdaptation
-                if ~isfield(s.rankAdaptationOptions,'type')
+                if ~isfield(s.rankAdaptationOptions,'type') || ...
+                        strcmpi(s.rankAdaptationOptions.type, 'standard')
                     [f,output] = solveAdaptation(s);
                 elseif ischar(s.rankAdaptationOptions.type)
+                    type = s.rankAdaptationOptions.type;
+                    if strcmpi(type, 'dmrg') || strcmpi(type, 'dmrgLowRank')
+                        type = 'dmrg';
+                    end
+                    
                     % Call the method corresponding to the asked rank adaptation option
-                    str = lower(s.rankAdaptationOptions.type); str(1) = upper(str(1));
+                    str = lower(type); str(1) = upper(str(1));
                     eval(['[f,output] = solve',str,'RankAdaptation(s,varargin{:});']);
                 else
-                    error('The rankAdaptationOptions property must be either empty or a string.')
+                    error('The rankAdaptationOptions property must be either inexistant or a string.')
                 end
             elseif strcmpi(s.algorithm,'standard')
                 [f,output] = solveStandard(s);
@@ -181,7 +207,84 @@ classdef TensorLearning < Learning
                 str = lower(s.algorithm); str(1) = upper(str(1));
                 eval(['[f,output] = solve',str,'(s,varargin{:});']);
             end
-        end 
+            
+            if s.modelSelection
+                switch lower(s.modelSelectionOptions.type)
+                    case 'testerror'
+                        [~,i] = min(output.testErrorIterations);
+                        f = output.iterates{i};
+                        output.selectedModelNumber = i;
+                        if isfield(output, 'errorIterations')
+                            output.error = output.errorIterations(i);
+                        end
+                        output.testError = output.testErrorIterations(i);
+                        if s.display
+                            fprintf('\nModel selection using the test error: model #%i selected\n',i)
+                        end
+                    case 'cverror'
+                        [~,i] = min(output.errorIterations);
+                        f = output.iterates{i};
+                        output.selectedModelNumber = i;
+                        output.error = output.errorIterations(i);
+                        if isfield(output, 'testErrorIterations')
+                            output.testError = output.testErrorIterations(i);
+                        end
+                        if s.display
+                            fprintf('\nModel selection using the cross-validation error: model #%i selected\n',i)
+                        end
+                    case 'slopeheuristic'
+                        if ~isfield(s.modelSelectionOptions, 'penShape')
+                            n = size(s.basesEval{1},1);
+                            s.modelSelectionOptions.penShape = @(x) (x / n);
+                        end
+                        if ~isfield(s.modelSelectionOptions, 'gapFactor')
+                            s.modelSelectionOptions.gapFactor = 2;
+                        end
+                        if ~isfield(s.modelSelectionOptions, 'complexityFunction')
+                            s.modelSelectionOptions.complexityFunction = @storage;
+                        end
+                        if ~isfield(s.modelSelectionOptions, 'complexityType')
+                            s.modelSelectionOptions.complexityType = 'standard';
+                        end
+                        
+                        select = ModelSelection();
+                        select.penshape = s.modelSelectionOptions.penShape;
+                        select.data.Rn = cellfun(@(f) s.lossFunction.riskEstimation(FunctionalTensor(f, ...
+                            s.basesEval), s.trainingData), output.iterates);
+                        select.gapFactor = s.modelSelectionOptions.gapFactor;
+                        select.data.C = select.complexity(output.iterates,...
+                            s.modelSelectionOptions.complexityFunction,...
+                            s.modelSelectionOptions.complexityType);
+                        [~,i] = select.slopeHeuristic();
+                        
+                        f = output.iterates{i};
+                        output.selectedModelNumber = i;
+                        output.error = output.errorIterations(i);
+                        if isfield(output, 'testErrorIterations')
+                            output.testError = output.testErrorIterations(i);
+                        end
+                        if s.display
+                            fprintf('\nModel selection using the slope heuristic: model #%i selected\n',i)
+                        end
+                    otherwise
+                        warning('Wrong model selection type, returning the last iterate.')
+                end
+                
+                if s.display
+                    if s.alternatingMinimizationParameters.display
+                        fprintf('\n')
+                    end
+                    finalDisplay(s,f);
+                    if isfield(output,'error')
+                        fprintf(', CV error = %.2d',output.error)
+                    end
+                    if isfield(output,'testError')
+                        fprintf(', test error = %.2d',output.testError)
+                    end
+                    fprintf('\n')
+                end
+            end
+        end
     end
         
     methods (Hidden)
@@ -203,6 +306,10 @@ classdef TensorLearning < Learning
                 s.linearModelLearning = repmat({s.linearModelLearning},1,s.numberOfParameters);
             elseif length(s.linearModelLearning) ~= s.numberOfParameters
                 error('Must provide numberOfParameters LinearModelLearning objects.')
+            end
+            
+            if s.errorEstimation
+                s.linearModelLearning = cellfun(@(x) setfield(x, 'errorEstimation', true), s.linearModelLearning, 'UniformOutput', false);
             end
             
             % Working set paths
@@ -256,6 +363,7 @@ classdef TensorLearning < Learning
                 
                 if isfield(outputLML,'error')
                     output.error = outputLML.error;
+                    output.errorIterations(k) = output.error;
                 end
                 
                 if s.testError
@@ -286,7 +394,7 @@ classdef TensorLearning < Learning
             end
             output.iter = k;
             
-            if s.display
+            if s.display && ~s.modelSelection
                 if s.alternatingMinimizationParameters.display
                     fprintf('\n')
                 end
@@ -311,6 +419,7 @@ classdef TensorLearning < Learning
             
             slocal = localSolver(s);
             slocal.display = false;
+            slocal.modelSelection = false;
             
             flag = 0;
             treeAdapt = false;
@@ -336,7 +445,7 @@ classdef TensorLearning < Learning
                 if isfield(outputLocal,'error')
                     errors(i) = outputLocal.error;
                     if isinf(errors(i))
-                        disp('Infinite error, returning the previous iterate.')
+                        warning('Infinite error, returning the previous iterate.')
                         f = fOld;
                         i = i - 1;
                         flag = -2;

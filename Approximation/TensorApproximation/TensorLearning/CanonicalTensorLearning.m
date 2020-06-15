@@ -267,6 +267,7 @@ classdef CanonicalTensorLearning < TensorLearning
             slocal.initializationType = 'mean';
             slocal.algorithm = 'standard';
             slocal.rankAdaptation = false;
+            slocal.modelSelection = false;
         end
         
         function [f,newRank, enrichedNodes, tensorForInitialization] = newRankSelection(s,f)
@@ -316,6 +317,7 @@ classdef CanonicalTensorLearning < TensorLearning
             slocal.rank = 1;
             slocal.display = false;
             slocal.testError = false;
+            slocal.modelSelection = false;
             
             f = CanonicalTensor.zeros(0,cellfun(@(x)size(x,2),H)');
             f0 = f;

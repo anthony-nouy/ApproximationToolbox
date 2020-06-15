@@ -82,7 +82,7 @@ s.testData = xTest;
 s.tolerance.onError = -Inf;
 
 s.rankAdaptation = true;
-s.rankAdaptationOptions.maxIterations = 10;
+s.rankAdaptationOptions.maxIterations = 20;
 
 s.treeAdaptation = true;
 % For the tree adaptation in density estimation, a tolerance must be provided
@@ -95,17 +95,13 @@ s.rankAdaptationOptions.earlyStopping = true;
 % earlyStoppingFactor < 1 because we the risk is negative
 s.rankAdaptationOptions.earlyStoppingFactor = 0.1;
 
+s.modelSelection = true;
+s.modelSelectionOptions.type = 'testError';
+
 %% Density estimation
 [f, output] = s.solve();
-% Model selection based on the risk estimation
-if s.rankAdaptation && isfield(output, 'testErrorIterations')
-    [risk,I] = min(output.testErrorIterations);
-    f = output.iterates{I};
-    output.error = output.errorIterations(I);
-    output.testError = output.testErrorIterations(I);
-end
-err = norm(u(xi)-f(xi))/norm(u(xi)); % L2 relative error
 
+err = norm(u(xi)-f(xi))/norm(u(xi)); % L2 relative error
 fprintf('\nRisk leave-one-out estimation:       %d\n',output.error)
-fprintf('Risk estimation using a test sample: %d\n',risk)
+fprintf('Risk estimation using a test sample: %d\n',output.testError)
 fprintf('L2 relative error estimation:         %d\n',err)

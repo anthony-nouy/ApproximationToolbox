@@ -136,7 +136,7 @@ classdef TensorTrainTensorLearning < TensorLearning
             if isa(s.lossFunction,'SquareLossFunction')
                 R = s.trainingData{2} - fx;
             elseif isa(s.lossFunction,'DensityL2LossFunction')
-                R = fx;
+                R = f;
             end
             if ~iscell(s.trainingData)
                 s.trainingData = {s.trainingData};
@@ -161,6 +161,7 @@ classdef TensorTrainTensorLearning < TensorLearning
             else
                 C.linearModelLearning = s.linearModelLearning;
             end
+            C.modelSelection = false;
             C.alternatingMinimizationParameters = s.alternatingMinimizationParameters;
             C.bases = s.bases;
             C.basesEval = s.basesEval;
@@ -198,6 +199,7 @@ classdef TensorTrainTensorLearning < TensorLearning
             slocal.rankAdaptation = false;
             slocal.storeIterates = false;
             slocal.initializationType = 'canonical';
+            slocal.modelSelection = false;
         end
         
         function [f,newRank,enrichedNodes,tensorForInitialization] = newRankSelection(s,f)

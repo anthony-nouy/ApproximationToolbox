@@ -83,7 +83,7 @@ classdef RandomVariable < ProbabilityMeasure
                 n = ceil(1/n);
             end
             if n==1
-                g= [];
+                g = [];
             elseif n==2
                 g = icdf(X,.5);
             else
@@ -102,7 +102,6 @@ classdef RandomVariable < ProbabilityMeasure
             x = icdf(X,u);
             Xn = DiscreteRandomVariable(x);
         end
-        
         
         function ok = eq(r1,r2)
             % ok = eq(r1,r2)
@@ -259,7 +258,6 @@ classdef RandomVariable < ProbabilityMeasure
             end
         end
         
-        
         function n = numberOfParameters(X)
             % n = numberOfParameters(X)
             % Computes the number of parameters that admits the random variable X
@@ -370,7 +368,7 @@ classdef RandomVariable < ProbabilityMeasure
         
         function varargout = cdfPlot(X,varargin)
             % varargout = cdfPlot(X,varargin)
-            % Plots the cumulative density function of the random variable X
+            % Plots the cumulative distribution function of the random variable X
             % X: RandomVariable
             % varargin: ('npts',n), n: integer, creates a plot with n
             % points, ('bar',bool), bool: boolean, uses the bar function

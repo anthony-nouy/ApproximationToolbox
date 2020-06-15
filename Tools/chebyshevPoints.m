@@ -1,6 +1,6 @@
-% CHEBYCHEVPOINTS - First n chebychev points in [s(1),s(2)]
+% CHEBYSHEVPOINTS - First n Chebyshev points in [s(1),s(2)]
 %
-% x = CHEBYCHEVPOINTS(n,s)
+% x = CHEBYSHEVPOINTS(n,s)
 % n: integer
 % s: 1-by-2 double (s=[-1,1] by default)
 
@@ -21,7 +21,7 @@
 % You should have received a copy of the GNU Lesser General Public License
 % along with ApproximationToolbox.  If not, see <https://www.gnu.org/licenses/>.
 
-function x = chebychevPoints(n,s)
+function x = chebyshevPoints(n,s)
 x = cos(pi*(2*(1:n)'-1)/2/n);
 if nargin>1
     x = 1/2*(s(1)+s(2)) + 1/2*(s(2)-s(1))*x;

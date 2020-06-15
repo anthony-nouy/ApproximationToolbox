@@ -56,12 +56,12 @@ switch choice
         fun.measure = X;
     case 4
         fprintf('Composition of functions\n')
-        d = 10;
+        d = 6;
         X = RandomVector(UniformRandomVariable(-1,1),d);
         tree = DimensionTree.balanced(d);
         fun = @(x1,x2) (1 + x1.^2+x2.^2).^(-1);
         fun = CompositionalModelFunction(tree,fun,X);
-        pdegree = 15;
+        pdegree = 4;
         bases = cellfun(@(x) PolynomialFunctionalBasis(x,0:pdegree), orthonormalPolynomials(X), 'UniformOutput',false);
         fun.store = true;
         fun.measure = X;
@@ -78,7 +78,7 @@ switch choice
         
     case 6
         fprintf('Tensorized function\n') 
-        r = 15; % Resolution
+        r = 11; % Resolution
         b = 2; % Scaling factor
         d = r+1;
         

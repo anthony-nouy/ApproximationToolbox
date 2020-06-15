@@ -86,16 +86,13 @@ s.alternatingMinimizationParameters.display = false;
 s.rankAdaptationOptions.earlyStopping = true;
 s.rankAdaptationOptions.earlyStoppingFactor = 10;
 
+s.modelSelection = true;
+s.modelSelectionOptions.type = 'testError';
+
 tic
 warning off
 [f, output] = s.solve();
 warning on
-if s.rankAdaptation % Model selection
-    [~,i] = min(output.testErrorIterations);
-    f = output.iterates{i};
-    output.error = output.errorIterations(i);
-    output.testError = output.testErrorIterations(i);
-end
 toc
 
 %% Displays

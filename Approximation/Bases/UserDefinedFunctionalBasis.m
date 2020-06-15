@@ -33,7 +33,7 @@ classdef UserDefinedFunctionalBasis < FunctionalBasis
             % inputDim: integer indicating the dimension of the domain of 
             % the functions in hFun
             %
-            % The basis is a not L2-orthonormal a priori, hence the
+            % The basis is not L2-orthonormal a priori, hence the
             % isOrthonormal property remains at its default value: false
             
             switch nargin
@@ -62,7 +62,7 @@ classdef UserDefinedFunctionalBasis < FunctionalBasis
         end
         
         function s = domain(f)
-            s = support(f.rv);
+            s = support(f.measure);
         end
         
         function n = ndims(f)

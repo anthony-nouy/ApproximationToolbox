@@ -156,7 +156,7 @@ classdef MultiIndices
             % w: array of length d=ndims(I) containing the weights
             % mode: 'ascend' or 'descend', 'ascend' by default
             
-            n = norm(I,p,w);
+            n = weightedNorm(I,p,w);
             [~,j] = sort(n,varargin{:});
             I.array = I.array(j,:);
         end
@@ -297,7 +297,6 @@ classdef MultiIndices
                 ind_sup = all(ind>=repmat(ind(i,:),[n 1]),2);
                 env(i) = max(abs(u(ind_sup)));
             end
-            
         end
         
         function Imax = getMaximalIndices(I)

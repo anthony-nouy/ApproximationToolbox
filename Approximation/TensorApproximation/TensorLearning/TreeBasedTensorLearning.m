@@ -32,7 +32,7 @@ classdef TreeBasedTensorLearning < TensorLearning
         % ISACTIVENODE - 1-by-N logical specifying the active nodes
         isActiveNode
     end
-    
+
     methods
         function s = TreeBasedTensorLearning(tree,isActiveNode,varargin)
             % TREEBASEDTENSORLEARNING - Constructor for the TreeBasedTensorLearning class
@@ -76,6 +76,12 @@ classdef TreeBasedTensorLearning < TensorLearning
                     f = TreeBasedTensor.ones(s.tree,s.rank,sz,s.isActiveNode);
                 case 'initialguess'
                     f = s.initialGuess;
+                    if ~all(f.ranks == s.rank)
+                        tr = Truncator;
+                        tr.tolerance = eps;
+                        tr.maxRank = s.rank;
+                        f = tr.truncate(f);
+                    end
                 case 'canonical'
                     if s.outputDimension ~= 1
                         warning(['Canonical initialization not implemented for ', ...
@@ -83,12 +89,12 @@ classdef TreeBasedTensorLearning < TensorLearning
                         f = TreeBasedTensor.randn(s.tree,s.rank,sz,s.isActiveNode);
                     else
                         f = canonicalInitialization(s,max(s.rank));
-                        if ~all(f.ranks == s.rank)
-                            tr = Truncator;
-                            tr.tolerance = eps;
-                            tr.maxRank = s.rank;
-                            f = tr.truncate(f);
-                        end
+                    end
+                    if ~all(f.ranks == s.rank)
+                        tr = Truncator;
+                        tr.tolerance = eps;
+                        tr.maxRank = s.rank;
+                        f = tr.truncate(f);
                     end
                 otherwise
                     error('Wrong initialization type.')
@@ -205,6 +211,8 @@ classdef TreeBasedTensorLearning < TensorLearning
                 C.linearModelLearning = s.linearModelLearning;
             end
             C.alternatingMinimizationParameters = s.alternatingMinimizationParameters;
+            C.tolerance.onStagnation = eps;
+            C.tolerance.error = eps;
             C.bases = s.bases;
             C.basesEval = s.basesEval;
             C.basesEvalTest = s.basesEvalTest;
@@ -242,7 +250,7 @@ classdef TreeBasedTensorLearning < TensorLearning
             if isa(s.lossFunction,'SquareLossFunction')
                 R = s.trainingData{2} - fx;
             elseif isa(s.lossFunction,'DensityL2LossFunction')
-                R = fx;
+                R = f;
             end
             if ~iscell(s.trainingData)
                 s.trainingData = {s.trainingData};
@@ -282,6 +290,7 @@ classdef TreeBasedTensorLearning < TensorLearning
             end
             
             slocal = s;
+            slocal.modelSelection = false;
             slocal.rankAdaptation = false;
             slocal.treeAdaptation = false;
             slocal.rank = 1;
@@ -349,10 +358,11 @@ classdef TreeBasedTensorLearning < TensorLearning
                 end
             end
         end
-        
+
         %% Rank adaptation solver methods
         function slocal = localSolver(s)
             slocal = s;
+            slocal.modelSelection = false;
             slocal.rankAdaptation = false;
             slocal.storeIterates = false;
             slocal.testError = false;
@@ -368,6 +378,7 @@ classdef TreeBasedTensorLearning < TensorLearning
                 tr = Truncator('tolerance',0,'maxRank',slocal.rank);
                 slocal.initialGuess = tr.truncate(rankOneCorrection(s,f));
                 slocal.alternatingMinimizationParameters.maxIterations = 10;
+                slocal.modelSelection = false;
                 slocal.rankAdaptation = false;
                 slocal.display = false;
                 slocal.alternatingMinimizationParameters.display = false;
@@ -518,6 +529,406 @@ classdef TreeBasedTensorLearning < TensorLearning
             end
         end
         
+%% Inner rank adaptation solver
+        function [f,output] = solveDmrgRankAdaptation(s)
+            if ~isfield(s.rankAdaptationOptions,'maxRank')
+                s.rankAdaptationOptions.maxRank = 100;
+            end
+            if ~isfield(s.rankAdaptationOptions,'postAlternatingMinimization')
+                s.rankAdaptationOptions.postAlternatingMinimization = false;
+            end
+            if strcmpi(s.rankAdaptationOptions.type, 'dmrgLowRank') && ...
+                    ~isfield(s.rankAdaptationOptions, 'modelSelectionType')
+                s.rankAdaptationOptions.modelSelectionType = 'cvError';
+            end
+            
+            output.flag = 0;
+            
+            [s,f] = initialize(s); % Initialization
+            f = FunctionalTensor(f,s.basesEval);
+            
+            % Exploration strategy of the tree by decreasing level
+            t = f.tensor.tree;
+            explorationStrategy = zeros(1,s.numberOfParameters);
+            ind = find(f.tensor.isActiveNode);
+            i = 1;
+            for lvl = max(t.level):-1:0
+                nodes = intersect(nodesWithLevel(t,lvl),ind);
+                explorationStrategy(i:i+numel(nodes)-1) = nodes;
+                i = i+numel(nodes);
+            end
+            s.explorationStrategy = setdiff(explorationStrategy, t.root, 'stable');
+                
+            % Replication of the LinearModelLearning objects
+            if s.linearModelLearningParameters.identicalForAllParameters && length(s.linearModelLearning) == 1
+                s.linearModelLearning = repmat({s.linearModelLearning},1,s.numberOfParameters);
+            elseif length(s.linearModelLearning) ~= s.numberOfParameters
+                error('Must provide numberOfParameters LinearModelLearning objects.')
+            end
+            
+            if s.errorEstimation
+                s.linearModelLearning = cellfun(@(x) setfield(x, 'errorEstimation', true), s.linearModelLearning, 'UniformOutput', false);
+            end
+            
+            % Working set paths
+            if any(cellfun(@(x) x.basisAdaptation,s.linearModelLearning)) && ...
+                    isempty(s.basesAdaptationPath)
+                s.basesAdaptationPath = adaptationPath(s.bases);
+            end
+            
+            if s.alternatingMinimizationParameters.maxIterations == 0
+                return
+            end
+            
+            % Alternating minimization loop
+            for k = 1:s.alternatingMinimizationParameters.maxIterations
+                [s,f] = preProcessing(s,f); % Pre-processing
+                f0 = f;
+                
+                if s.alternatingMinimizationParameters.random
+                    alphaList = randomizeExplorationStrategy(s); % Randomize the exploration strategy
+                else
+                    alphaList = s.explorationStrategy;
+                end
+                
+                t = f.tensor.tree;
+                for alpha = alphaList                    
+                    if s.linearModelLearning{alpha}.basisAdaptation
+                        if ismember(alpha,t.internalNodes)
+                            if s.linearModelLearningParameters.basisAdaptationInternalNodes
+                                tr = Truncator('tolerance',eps,'MaxRank',max(f.tensor.ranks));
+                                f.tensor = tr.hsvd(f.tensor);
+                            elseif all(f.tensor.isActiveNode(nonzeros(t.children(:,alpha))))
+                                s.linearModelLearning{alpha}.basisAdaptation = false;
+                            end
+                        end
+                        f.tensor = orthAtNode(f.tensor,t.parent(alpha));
+                        s.tree = t;
+                        s.isActiveNode = f.tensor.isActiveNode;
+                        switch lower(s.rankAdaptationOptions.type)
+                            case 'dmrg'
+                                s.linearModelLearning{alpha}.basisAdaptationPath = createBasisAdaptationPathDMRG(s,f.tensor.ranks,alpha);
+                            case 'dmrglowrank'
+                                s.linearModelLearning{alpha}.basisAdaptationPath = createBasisAdaptationPathDMRGLowRank(s,f.tensor.ranks,alpha);
+                            otherwise
+                                error('Wrong rank adaptation type.')
+                        end
+                    else
+                        f.tensor = orthAtNode(f.tensor,t.parent(alpha));
+                    end
+                    
+                    g = parameterGradientEvalDMRG(f,alpha,[],s.rankAdaptationOptions.type);
+                    
+                    if isa(s.lossFunction,'SquareLossFunction')
+                        b = s.trainingData{2};
+                        s.linearModelLearning{alpha}.sharedCoefficients = (alpha ~= t.root);
+                    elseif isa(s.lossFunction,'DensityL2LossFunction')
+                        if ~iscell(s.trainingData)
+                            b = [];
+                        elseif iscell(s.trainingData) && length(s.trainingData) == 2
+                            y = s.trainingData{2};
+                            if isa(y,'FunctionalTensor')
+                                y = y.tensor;
+                            end
+                            y = orth(y);
+                            if t.isLeaf(alpha)
+                                a = y;
+                                a.tensors(~t.isLeaf) = cellfun(@(v,c) FullTensor(v.data.*c.data,v.order,v.sz),y.tensors(~t.isLeaf),f.tensor.tensors(~t.isLeaf),'UniformOutput',false);
+                                I = setdiff(1:s.order,find(t.dim2ind == alpha));
+                                C = cellfun(@(x) x.data, f.tensor.tensors(t.dim2ind),'UniformOutput',false);
+                                b = timesVector(a,C(I),I);
+                                b = b.tensors{1}.data;
+                            else
+                                b = dot(f.tensor,y)/f.tensor.tensors{alpha}.data;
+                            end
+                        end
+                    end
+                    
+                    gamma = t.parent(alpha);
+                    I = setdiff(1:f.tensor.tensors{gamma}.order, t.childNumber(alpha));
+                    switch lower(s.rankAdaptationOptions.type)
+                        case 'dmrg'
+                            A = reshape(g.data, g.sz(1),[]);
+
+                            s.linearModelLearning{alpha}.trainingData = {[], b};
+                            s.linearModelLearning{alpha}.basis = [];
+                            s.linearModelLearning{alpha}.basisEval = A;
+                            [C, outputLML] = s.linearModelLearning{alpha}.solve();
+                            
+                            if isempty(C(:)) || ~nnz(C(:)) || ~all(isfinite(C(:))) || any(isnan(C(:)))
+                                warning('Empty, zero or NaN solution, returning to the previous iteration.')
+                                output.flag = -2;
+                                output.error = Inf;
+                                break
+                            end
+                            
+                            sz1 = prod(f.tensor.tensors{alpha}.sz(1:end-1));
+                            sz2 = prod(f.tensor.tensors{gamma}.sz(I));
+                            C = FullTensor(C, 2, [sz1, sz2]);
+                            
+                            tr = Truncator;
+                            tr.tolerance = s.tolerance.onError/sqrt(nnz(f.tensor.isActiveNode)-1);
+                            tr.maxRank = s.rankAdaptationOptions.maxRank;
+                            C = tr.truncate(C);
+                            r = size(C.space.spaces{1},2);
+                            
+                            sz1 = [f.tensor.tensors{alpha}.sz(1:end-1), r];
+                            sz2 = [f.tensor.tensors{gamma}.sz(I), r];
+                            
+                            aAlpha = reshape(C.space.spaces{1}, sz1);
+                            aGamma = reshape(C.space.spaces{2}.*repmat(C.core.data(:).', ...
+                                size(C.space.spaces{2},1),1), sz2);
+                            
+                            aGamma = ipermute(aGamma, [I, t.childNumber(alpha)]);
+                            sz2([I, t.childNumber(alpha)]) = sz2;
+                        case 'dmrglowrank'
+                            A = cellfun(@(x) reshape(x.data, x.sz(1),[]), g, 'UniformOutput', false);
+                            A = A(:);
+                            
+                            slocal = TreeBasedTensorLearning(DimensionTree.trivial(2), [1,1,0], s.lossFunction);
+                            slocal.rankAdaptation = true;
+                            
+%                             if strcmpi(s.rankAdaptationOptions.modelSelectionType, 'slopeHeuristic')
+%                                 % Let the algorithm go to two times the maximal rank
+%                                 slocal.tolerance.onError = 0;
+%                                 slocal.tolerance.onStagnation = 0;
+%                                 slocal.rankAdaptationOptions.maxIterations = 2*s.rankAdaptationOptions.maxRank;
+%                             else
+                                slocal.tolerance.onError = s.tolerance.onError/sqrt(nnz(f.tensor.isActiveNode)-1);
+                                slocal.tolerance.onStagnation = s.tolerance.onStagnation;
+                                slocal.rankAdaptationOptions.maxIterations = s.rankAdaptationOptions.maxRank;
+%                             end
+                            
+                            slocal.alternatingMinimizationParameters = s.alternatingMinimizationParameters;
+                            slocal.alternatingMinimizationParameters.display = false;
+                            slocal.storeIterates = true;
+                            slocal.testError = false;
+                            slocal.errorEstimation = true;
+                            slocal.display = false;
+                            slocal.order = 2;
+                            slocal.linearModelLearning = s.linearModelLearning{alpha};
+                            slocal.warnings = structfun(@(x) false, s.warnings, 'UniformOutput', false);
+                            slocal.basesAdaptationPath = s.linearModelLearning{alpha}.basisAdaptationPath;
+                            slocal.trainingData = s.trainingData;
+                            slocal.basesEval = A;
+                            slocal.modelSelection = true;
+                            slocal.modelSelectionOptions.type = s.rankAdaptationOptions.modelSelectionType;
+                            [C, outputLML] = slocal.solve();
+                            
+%                             if strcmpi(s.rankAdaptationOptions.modelSelectionType, 'slopeHeuristic') && ...
+%                                     C.tensor.ranks(2) > s.rankAdaptationOptions.maxRank
+%                                 tr = Truncator('tolerance', 0, 'maxRank', s.rankAdaptationOptions.maxRank);
+%                                 C.tensor = tr.truncate(C.tensor);
+%                             end
+
+                            sz1 = [f.tensor.tensors{alpha}.sz(1:end-1), C.tensor.ranks(2)];
+                            sz2 = [f.tensor.tensors{gamma}.sz(I), C.tensor.ranks(2)];
+                            
+                            aAlpha = reshape(C.tensor.tensors{2}, sz1);
+                            aGamma = reshape(permute(C.tensor.tensors{1}, [2,1]), sz2);
+                            
+                            aGamma = ipermute(aGamma, [I, t.childNumber(alpha)]);
+                            sz2([I, t.childNumber(alpha)]) = sz2;
+                            
+                            aAlpha = aAlpha.data;
+                            aGamma = aGamma.data;
+                            
+                            if (isempty(aAlpha(:)) || ~nnz(aAlpha(:)) || ~all(isfinite(aAlpha(:))) || any(isnan(aAlpha(:)))) || ...
+                                    (isempty(aGamma(:)) || ~nnz(aGamma(:)) || ~all(isfinite(aGamma(:))) || any(isnan(aGamma(:))))
+                                warning('Empty, zero or NaN solution, returning to the previous iteration.')
+                                output.flag = -2;
+                                output.error = Inf;
+                                break
+                            end
+                        otherwise
+                            error('Wrong rank adaptation type.')
+                    end
+                    f.tensor.tensors{alpha} = FullTensor(aAlpha, length(sz1), sz1);
+                    f.tensor.tensors{gamma} = FullTensor(aGamma, length(sz2), sz2);
+                end
+                
+                if s.rankAdaptationOptions.postAlternatingMinimization
+                    fprintf('\t\tPost alternating minimization.\n')
+                    slocal = TreeBasedTensorLearning(s.tree, s.isActiveNode, s.lossFunction);
+                    slocal.basesEval = s.basesEval;
+                    slocal.basesAdaptationPath = s.basesAdaptationPath;
+                    slocal.trainingData = s.trainingData;
+                    slocal.testError = s.testError;
+                    slocal.testData = s.testData;
+                    slocal.basesEvalTest = s.basesEvalTest;
+                    slocal.modelSelection = false;
+                    slocal.rankAdaptation = false;
+                    slocal.storeIterates = false;
+                    slocal.rank = f.tensor.ranks;
+                    slocal.initializationType = 'initialGuess';
+                    slocal.initialGuess = f.tensor;
+                    slocal.tolerance.onError = s.tolerance.onError/sqrt(nnz(f.tensor.isActiveNode)-1);
+                    slocal.tolerance.onStagnation = s.tolerance.onStagnation;
+                    slocal.alternatingMinimizationParameters = s.alternatingMinimizationParameters;
+                    slocal.alternatingMinimizationParameters.display = false;
+                    slocal.errorEstimation = true;
+                    slocal.display = false;
+                    slocal.linearModelLearning = s.linearModelLearning;
+                    slocal.warnings = structfun(@(x) false, s.warnings, 'UniformOutput', false);
+                    [f, outputLML] = slocal.solve();
+                end
+                
+                stagnation = stagnationCriterion(s,f,f0);
+                output.stagnationIterations(k) = stagnation;
+                
+                if s.storeIterates
+                    if isa(s.bases,'FunctionalBases')
+                        output.iterates{k} = FunctionalTensor(f.tensor,s.bases);
+                    else
+                        output.iterates{k} = f;
+                    end
+                end
+                
+                if isfield(outputLML,'error')
+                    output.error = outputLML.error;
+                    output.errorIterations(k) = output.error;
+                end
+                
+                if s.testError
+                    fEvalTest = FunctionalTensor(f, s.basesEvalTest);
+                    output.testError = s.lossFunction.testError(fEvalTest,s.testData);
+                    output.testErrorIterations(k) = output.testError;
+                end
+                
+                if s.alternatingMinimizationParameters.display
+                    fprintf('\tAlt. min. iteration %i: stagnation = %.2d',k,stagnation)
+                    if isfield(output,'error')
+                        fprintf(', error = %.2d',output.error)
+                    end
+                    if s.testError
+                        fprintf(', test error = %.2d',output.testError);
+                    end
+                    fprintf('\n')
+                end
+                
+                if (k>1) && stagnation < s.alternatingMinimizationParameters.stagnation
+                    output.flag = 1;
+                    break
+                end
+                
+                if s.treeAdaptation && k>1
+                    Cold = storage(f.tensor);
+                    [s,f,output] = adaptTree(s,f,output.error,[],output,k);
+                    adaptedTree = output.adaptedTree;
+                    
+                    if adaptedTree
+                        if s.display
+                            fprintf('\t\tStorage complexity before permutation = %i\n',Cold);
+                            fprintf('\t\tStorage complexity after permutation  = %i\n',storage(f.tensor));
+                        end
+                        if s.testError
+                            fEvalTest = FunctionalTensor(f, s.basesEvalTest);
+                            if s.display
+                                fprintf('\t\tTest error after permutation = %.2d\n',s.lossFunction.testError(fEvalTest,s.testData));
+                            end
+                        end
+                        if s.alternatingMinimizationParameters.display
+                            fprintf('\n')
+                        end
+                    end
+                end
+            end
+            
+            if isa(s.bases,'FunctionalBases')
+                f = FunctionalTensor(f.tensor,s.bases);
+            end
+            output.iter = k;
+            
+            if isfield(output, 'adaptedTree')
+                output = rmfield(output, 'adaptedTree');
+            end
+            
+            if s.display && ~s.modelSelection
+                if s.alternatingMinimizationParameters.display
+                    fprintf('\n')
+                end
+                finalDisplay(s,f);
+                if isfield(output,'error')
+                    fprintf(', CV error = %.2d',output.error)
+                end
+                if isfield(output,'testError')
+                    fprintf(', test error = %.2d',output.testError)
+                end
+                fprintf('\n')
+            end
+        end
+        
+        function p = createBasisAdaptationPathDMRG(s,r,alpha)
+            % CREATEBASISADAPTATIONPATHDMRG - Creation of the basis adaptation path for the standard DMRG
+            %
+            % p = CREATEBASISADAPTATIONPATHDMRG(s,r,alpha)
+            % s: TreeBasedTensorLearning
+            % r: 1-by-s.tree.nbNodes integer
+            % alpha: 1-by-1 integer
+            % p: logical matrix
+            
+            t = s.tree;
+            r(t.root) = 1;
+            gamma = t.parent(alpha);
+            
+            pAlpha = createBasisAdaptationPath(s,r,alpha);            
+            pAlpha = pAlpha(1:size(pAlpha,1)/r(alpha),:);
+            
+            ch = nonzeros(t.children(:,gamma));
+            chA = setdiff(ch(s.isActiveNode(ch)), alpha);
+            chNa = ch(~s.isActiveNode(ch));
+            [~,J] = find(t.dim2ind == chNa);
+            pGamma = cell(1, length(ch));
+            pGamma(t.childNumber(chNa) + (t.childNumber(chNa) < t.childNumber(alpha))) = s.basesAdaptationPath(J);
+            pGamma(t.childNumber(chA) + (t.childNumber(chA) < t.childNumber(alpha))) = arrayfun(@(x) ones(x,1), r(chA), 'UniformOutput', false);
+            pGamma{1} = pAlpha;
+            
+            rGamma = r(gamma);
+            p = pGamma{end};
+            for i = length(pGamma)-1:-1:1
+                p = kron(p,pGamma{i});
+            end
+            p = repmat(p,rGamma,1);
+        end
+        
+        function p = createBasisAdaptationPathDMRGLowRank(s,r,alpha)
+            % CREATEBASISADAPTATIONPATHDMRG - Creation of the basis adaptation path for low-rank the DMRG
+            %
+            % p = CREATEBASISADAPTATIONPATHDMRG(s,r,alpha)
+            % s: TreeBasedTensorLearning
+            % r: 1-by-s.tree.nbNodes integer
+            % alpha: 1-by-1 integer
+            % p: cell of 2 logical matrices
+            
+            t = s.tree;
+            r(t.root) = 1;
+            gamma = t.parent(alpha);
+            
+            pAlpha = createBasisAdaptationPath(s,r,alpha);            
+            pAlpha = pAlpha(1:size(pAlpha,1)/r(alpha),:);
+            
+            ch = setdiff(nonzeros(t.children(:,gamma)), alpha);
+            chA = ch(s.isActiveNode(ch));
+            chNa = ch(~s.isActiveNode(ch));
+            if ~isempty(chNa)
+                [~,J] = find(t.dim2ind == chNa);
+            else
+                J = [];
+            end
+            pGamma = cell(1, length(ch));
+            pGamma(t.childNumber(chNa) - ...
+                (t.childNumber(chNa) > t.childNumber(alpha))) = s.basesAdaptationPath(J);
+            pGamma(t.childNumber(chA) - ...
+                (t.childNumber(chA) > t.childNumber(alpha))) = arrayfun(@(x) ones(x,1), r(chA), 'UniformOutput', false);
+            
+            rGamma = r(gamma);
+            p = pGamma{end};
+            for i = length(pGamma)-1:-1:1
+                p = kron(p,pGamma{i});
+            end
+            p = repmat(p,rGamma,1);
+            p = {pAlpha, p};
+        end
     end
     
     methods (Static)
@@ -612,11 +1023,11 @@ if isAdmissibleRank(f,f.ranks+delta)
     return
 end
 
+ind = find(delta);
 for i = 1:nnz(delta)
     pos = nchoosek(1:nnz(delta),i);
     pos = pos(randperm(size(pos,1)),:);
     for j = 1:size(pos,1)
-        ind = find(delta);
         deltaLoc = delta;
         deltaLoc(ind(pos(j,:))) = 0;
         if isAdmissibleRank(f,f.ranks+deltaLoc)

@@ -122,14 +122,14 @@ classdef RandomVector < ProbabilityMeasure
             % p : 1-by-1 double (<1)
             
             if ~isa(rv.copula,'IndependentCopula')
-                error('only works for independent copula')
+                error('The method only works for independent copulas.')
             end
             
-            d= numel(rv);
+            d = numel(rv);
             
             if numel(n)==1 && n<1
-                p=n;
-                n=ceil(p^(-1/d));
+                p = n;
+                n = ceil(p^(-1/d));
             end
             
             if numel(n)~=d

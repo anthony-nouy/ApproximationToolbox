@@ -130,8 +130,7 @@ classdef LinearModelLearningDensityL2 < LinearModelLearning
                 
                 aIncludedCoefficients = aStandard;
                 aIncludedCoefficients(setdiff(1:length(aIncludedCoefficients),includedCoefficients)) = 0;
-                if isempty(b)
-                    b = s.trainingData{2};
+                if ~isempty(b)
                     errIncludedCoefficients = (N^2 - 2*N)/(N-1)^2*norm(aIncludedCoefficients)^2 + 1/(N-1)^2*norm(b(includedCoefficients))^2 - ...
                         2/(N-1)^2*sum(A(:,includedCoefficients)*b(includedCoefficients)) + (2*N-1)/(N*(N-1)^2)*sum(AsquareSum(includedCoefficients)) - ...
                         2/(N-1)*sum(A*aIncludedCoefficients) + 2*aIncludedCoefficients.'*b;
@@ -221,25 +220,30 @@ classdef LinearModelLearningDensityL2 < LinearModelLearning
             I = sort(I);
             pattern = pattern(:,I);
             
-            n = size(A,1);
+            N = size(A,1);
             m = size(pattern,2);
             a = cell(1,m);
             a(:) = {zeros(size(pattern,1),1)};
             err = zeros(1,m);
             
-            I = cellfun(@nnz,num2cell(pattern,1)) > size(A,1);
+            I = sum(pattern~=0,1) > size(A,1);
             err(:,I) = Inf;
             pattern(:,I) = [];
+            
+            if isempty(pattern)
+                a = aStandard;
+                return
+            end
             
             for i=1:size(pattern,2)
                 ind = pattern(:,i);
                 ared = aStandard(ind);
                 
                 if isempty(b)
-                    err(i) = (-n^2)/(1-n)^2*(ared.'*ared) + (2*n-1)/(n*(n-1)^2)*sum(AsquareSum(ind));
+                    err(i) = (-N^2)/(1-N)^2*(ared.'*ared) + (2*N-1)/(N*(N-1)^2)*sum(AsquareSum(ind));
                 else
                     bred = b(ind);
-                    err(i) = (n^2 - 2*n)/(n-1)^2*norm(ared)^2 + 1/(n-1)^2*norm(bred)^2 - 2/(n-1)^2*Asum(ind)*bred + (2*n-1)/(n*(n-1)^2)*sum(AsquareSum(ind)) - 2/(n-1)*Asum(ind)*ared + 2*ared.'*bred;
+                    err(i) = (N^2 - 2*N)/(N-1)^2*norm(ared)^2 + 1/(N-1)^2*norm(bred)^2 - 2/(N-1)^2*Asum(ind)*bred + (2*N-1)/(N*(N-1)^2)*sum(AsquareSum(ind)) - 2/(N-1)*Asum(ind)*ared + 2*ared.'*bred;
                 end
                 a{i}(ind) = ared;
                 

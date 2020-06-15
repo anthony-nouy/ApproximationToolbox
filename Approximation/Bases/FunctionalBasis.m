@@ -286,7 +286,7 @@ classdef FunctionalBasis
             % varargin: additional arguments for command plot
             
             if ndims(h)>1
-                error('not implemented')
+                error('Method not implemented.')
             end
             
             s = truncatedSupport(h.measure);

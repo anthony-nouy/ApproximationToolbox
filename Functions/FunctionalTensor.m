@@ -204,9 +204,10 @@ classdef FunctionalTensor < Function
             % Computes the conditional expectation of f with respect to
             % the random variables dims (a subset of 1:d). The expectation
             % with respect to other variables (in the complementary set of
-            % dims) is taken with respect the probability measure given by RandomVector XdimsC
-            % if provided, or with respect the probability measure
-            % associated with the corresponding bases of f.
+            % dims) is taken with respect to the probability measure given 
+            % by RandomVector XdimsC if provided, or with respect to the
+            % probability measure associated with the corresponding bases 
+            % of f.
             % f: FunctionalTensor
             % dims: D-by-1 or 1-by-D double
             %      or 1-by-d logical
@@ -222,8 +223,8 @@ classdef FunctionalTensor < Function
             end
             
             dims = sort(dims);
-            if length(f.fdims)~=d && ~all(f.fdims,1:d)
-                error('not implemented for fdims different from 1:d')
+            if length(f.fdims)~=d && ~all(f.fdims == 1:d)
+                error('Method not implemented for fdims different from 1:d.')
             end
             dimsC = setdiff(1:length(f.bases),dims);
             if isempty(dimsC)
@@ -246,7 +247,7 @@ classdef FunctionalTensor < Function
         
         function v = varianceConditionalExpectation(f,alpha)
             % v = varianceConditionalExpectation(f,alpha)
-            % Computes the variance of the conditional expectation of f in dimensions in dims
+            % Computes the variance of the conditional expectation of f in dimensions in alpha
             % f: FunctionalTensor
             % alpha: n-by-D double, where D is equal to the number of random variables
             %    or n-by-d logical
@@ -424,20 +425,104 @@ classdef FunctionalTensor < Function
             end
             
             g = parameterGradientEvalDiag(fH, mu, H);
+            
             if isa(f.tensor,'TreeBasedTensor') && ~t.isLeaf(mu)
                 % If the order of the children has been modified in g, 
                 % compute the inverse permutation.
                 ch = nonzeros(t.children(:,mu));
                 [~,I] = sort([ch(fH.isActiveNode(ch)) ; ch(~fH.isActiveNode(ch))]);
-                J = []; 
-                if mu ~= t.root 
-                    J = fH.tensors{mu}.order+1; 
+                J = [];
+                if mu ~= t.root
+                    J = fH.tensors{mu}.order+1;
                 end
                 K = []; 
                 if mu ~= t.root && f.tensor.ranks(t.root) > 1
                     K = g.order; 
                 end
                 g = permute(g,[1 ; I+1 ; J ; K]);
+            end
+        end
+        
+        function g = parameterGradientEvalDMRG(f,mu,x,type,varargin)
+            if nargin <= 3 || isempty(type)
+                type = 'dmrg';
+            end
+            
+            if f.evaluatedBases
+                H = f.bases;
+            elseif nargin >= 3
+                H = eval(f.bases,x);
+            else
+                error('Must provide the evaluation points or the bases evaluations.')
+            end
+            
+            dims = 1:f.tensor.order;
+            if isa(f.tensor,'TreeBasedTensor')
+                % Compute fH, the TimesMatrixEvalDiag of f with H in all  
+                % the dimensions except the ones associated with mu (if mu 
+                % is a leaf node) or with the inactive children of mu (if
+                % mu is an internal node). The tensor fH is used to compute 
+                % the gradient of f with respect to f.tensor.tensors{mu}.
+                t = f.tensor.tree;
+                if t.isLeaf(mu)
+                    dims(t.dim2ind == mu) = [];
+                else
+                    ch = nonzeros(t.children(:,mu));
+                    ind = intersect(t.dim2ind,ch(~f.tensor.isActiveNode(ch)));
+                    dims(ismember(t.dim2ind,ind)) = [];
+                end
+                
+                fH = timesMatrix(f.tensor,H(dims),dims);
+            else
+                if mu <= f.tensor.order
+                    dims(mu) = [];
+                end
+                fH = timesMatrix(f.tensor,H(dims),dims);
+            end
+            
+            [g,gMu,gGamma] = parameterGradientEvalDiagDMRG(fH,mu,H);
+
+            if isa(f.tensor,'TreeBasedTensor')
+                % If the order of the children has been modified in g, 
+                % compute the inverse permutation.
+                ch = nonzeros(t.children(:,mu));
+                if isempty(ch)
+                    I = 1;
+                else
+                    [~,I] = sort([ch(fH.isActiveNode(ch)) ; ch(~fH.isActiveNode(ch))]);
+                end
+                gamma = t.parent(mu);
+                ch = fastSetdiff(nonzeros(t.children(:,gamma)), mu);
+                [~,II] = sort([ch(fH.isActiveNode(ch)) ; ch(~fH.isActiveNode(ch))]);
+
+                switch lower(type)
+                    case 'dmrg'
+                        I = [I; length(I) + II];
+                        J = [];
+                        if mu ~= t.root && gamma ~= t.root
+                            J = fH.tensors{mu}.order + fH.tensors{gamma}.order-1;
+                        end
+                        K = [];
+                        if mu ~= t.root && f.tensor.ranks(t.root) > 1
+                            K = g.order;
+                        end
+                        g = permute(g,[1 ; I+1 ; J ; K]);
+                    case 'dmrglowrank'
+                        gMu = permute(gMu,[1 ; I+1]);
+                        J = [];
+                        if gamma ~= t.root
+                            J = fH.tensors{gamma}.order;
+                        end
+                        K = [];
+                        if mu ~= t.root && f.tensor.ranks(t.root) > 1
+                            K = g.order;
+                        end
+                        gGamma = permute(gGamma,[1 ; II+1 ; J ; K]);
+                        
+                        g = {gMu, gGamma};
+                    otherwise
+                        error('Wrong DMRG type.')
+                end
             end
         end
         
@@ -501,12 +586,12 @@ classdef FunctionalTensor < Function
             % f: FunctionalTensor
             
             if nargin==2
-                dims = 1:number(f.bases);
+                dims = 1:length(f.bases);
             end
             H = eval(f.bases,x,dims);
             
             if numel(dims)==f.tensor.order
-                y=timesMatrix(f.tensor,H,dims);
+                y = timesMatrix(f.tensor,H,dims);
             else
                 f.tensor=timesMatrix(f.tensor,H,f.fdims(dims));
                 f.bases = removeBases(f.bases,dims);

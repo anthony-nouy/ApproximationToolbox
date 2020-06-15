@@ -18,14 +18,12 @@
 % along with ApproximationToolbox.  If not, see <https://www.gnu.org/licenses/>.
 
 classdef SparseTensorProductFunctionalBasis < FunctionalBasis
-    
     properties
         bases
         indices
     end
     
     methods
-        
         function H = SparseTensorProductFunctionalBasis(bases,indices)
             % Class SparseTensorProductFunctionalBasis
             %
@@ -217,8 +215,6 @@ classdef SparseTensorProductFunctionalBasis < FunctionalBasis
             else
                 h = FunctionalBasisArray(speye(cardinal(h)),h,[cardinal(h),1]);
             end
-            
-            
         end
         
         function rv = getRandomVector(H)
@@ -274,11 +270,6 @@ classdef SparseTensorProductFunctionalBasis < FunctionalBasis
             finterp = H.interpolate(fun,xgrid);
             output.numberOfEvaluations = size(xgrid,1);
             output.grid = grid;
-            
         end
-    end
-    
-    methods (Static)
-        
     end
 end

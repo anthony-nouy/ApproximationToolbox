@@ -31,13 +31,13 @@ rv = UniformRandomVariable(-1,1);
 % Interpolation basis and points
 p = 30;
 h = PolynomialFunctionalBasis(orthonormalPolynomials(rv),0:p);
-xcp = chebychevPoints(cardinal(h),[-1,1]);
+xcp = chebyshevPoints(cardinal(h),[-1,1]);
 
 % Interpolation of the function
 f = h.interpolate(fun,xcp);
 
 % Displays and error
-fprintf('\nInterpolation on a polynomial space using Chebychev Points\n')
+fprintf('\nInterpolation on a polynomial space using Chebyshev Points\n')
 figure(1); clf;
 fplot(@(x) [fun(x),f(x)],[-1,1])
 legend('True function','Interpolation')

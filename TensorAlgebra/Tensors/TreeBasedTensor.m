@@ -101,6 +101,9 @@ classdef TreeBasedTensor < AlgebraicTensor
                 r = varargin{1};
             end
             
+            % Do not take into account the root rank if it is greater than one.
+            r(T.root) = 1; 
+            
             if any(r(x.nonActiveNodes) ~= 0)
                 ok = false;
                 warning('Inactive nodes must have an alpha-rank equal to 0.')
@@ -1647,7 +1650,7 @@ classdef TreeBasedTensor < AlgebraicTensor
             
         end
         
-        function v = evalDiagBelow(f,mu)
+        function v = evalDiagBelow(f,mu,exceptNodes)
             % EVALDIAGBELOW - Evaluation of the diagonal of the tensor of the function v^\alpha of the representation
             % f = \sum_{k=1}^{r_\alpha} v^\alpha_k w^\alpha_k
             % (optionally for a node \alpha = mu)
@@ -1655,13 +1658,20 @@ classdef TreeBasedTensor < AlgebraicTensor
             % v = EVALDIAGBELOW(f,mu)
             % f: TreeBasedTensor
             % mu: 1-by-1 integer
+            % exceptNodes: 1-by-m integer
             % v: 1-by-f.tree.nbNodes cell
             
             t = f.tree;
             v = f.tensors;
             
-            if nargin == 2 && mu ~= t.root
-                excludeList = [mu ascendants(t,mu)];
+            if nargin <= 2
+                exceptNodes = [];
+            end
+            
+            if nargin >= 2 && mu ~= t.root
+                excludeList = union([mu ascendants(t,mu)], exceptNodes);
+            elseif ~isempty(exceptNodes)
+                excludeList = exceptNodes;
             else
                 excludeList = [];
             end
@@ -1673,7 +1683,7 @@ classdef TreeBasedTensor < AlgebraicTensor
                 nodLvl = fastSetdiff(nodLvl,excludeList);
                 
                 for nod = nodLvl
-                    ch = nonzeros(t.children(:,nod));
+                    ch = fastSetdiff(nonzeros(t.children(:,nod)),excludeList);
                     aChNod =  ch(f.isActiveNode(ch));
                     naChNod = ch(~f.isActiveNode(ch));
                     
@@ -1689,7 +1699,11 @@ classdef TreeBasedTensor < AlgebraicTensor
                             v{nod} = timesTensor(vaChNod,v{nod},2:vaChNod.order,t.childNumber(aChNod));
                         end
                     else
-                        v{nod} = evalDiag(v{nod},t.childNumber(naChNod));
+                        chNb = t.childNumber(naChNod);
+                        if length(naChNod) > 1
+                            v{nod} = evalDiag(v{nod},chNb);
+                        end
+                        v{nod} = permute(v{nod}, [chNb(1), setdiff(1:v{nod}.order, chNb(1))]);
                     end
                 end
             end
@@ -1814,6 +1828,89 @@ classdef TreeBasedTensor < AlgebraicTensor
             if mu ~= t.root
                 g = outerProductEvalDiag(g,w,1,1);
             end
+        end
+        
+        function [g, gMu, gGamma] = parameterGradientEvalDiagDMRG(f,mu,H)
+            % PARAMETERGRADIENTEVALDIAGDMRG - Diagonal of the gradient of the tensor with respect to a given parameter, obtained by contraction of two node tensors along their common edge; used in a DMRG algorithm
+            %
+            % [g,ind] = PARAMETERGRADIENTEVALDIAGDMRG(f,mu,H)
+            % f: TreeBasedTensor
+            % mu: integer (index of node of the dimension tree)
+            % H: 1-by-f.order cell
+            % g: FullTensor
+            % gMu: FullTensor
+            % gGamma: FullTensor
+            t = f.tree;
+            gamma = t.parent(mu);
+            uGamma = evalDiagBelow(f,gamma,mu);
+            wGamma = evalDiagAbove(f,uGamma,gamma);
+            
+            ch = fastSetdiff(nonzeros(f.tree.children(:,gamma)), mu);
+            aCh = ch(f.isActiveNode(ch));
+            naCh = ch(~f.isActiveNode(ch));
+            if ~isempty(aCh)
+                gGamma = uGamma{aCh(1)};
+                for i = 2:length(aCh)
+                    gGamma = outerProductEvalDiag(gGamma,uGamma{aCh(i)},1,1);
+                end
+            end
+            if ~isempty(naCh)
+                gna = FullTensor(ones(wGamma.sz(1),1), 1, wGamma.sz(1));
+                for i = 1:length(naCh)
+                    if nargin == 3
+                        gna = outerProductEvalDiag(gna,FullTensor(H{t.dim2ind == naCh(i)}),1,1);
+                    else
+                        gna = outerProductEvalDiag(gna,FullTensor(eye(f.tensors{gamma}.sz(t.childNumber(naCh(i))))),[],[],true);
+                    end
+                end
+                
+                if ~isempty(aCh)
+                    gGamma = outerProductEvalDiag(gGamma,gna,1,1);
+                else
+                    gGamma = gna;
+                end
+            end
+            if gamma ~= t.root
+                gGamma = outerProductEvalDiag(gGamma,wGamma,1,1);
+            end
+            
+            uMu = evalDiagBelow(f,mu);
+            ch = nonzeros(f.tree.children(:,mu));
+            aCh = ch(f.isActiveNode(ch));
+            naCh = ch(~f.isActiveNode(ch));
+            if t.isLeaf(mu)
+                gMu = FullTensor(ones(wGamma.sz(1),1), 1, wGamma.sz(1));
+                if nargin == 3
+                    gMu = outerProductEvalDiag(gMu,FullTensor(H{t.dim2ind == mu}),1,1);
+                else
+                    gMu = outerProductEvalDiag(gMu,FullTensor(eye(uMu{mu}.sz(1))),[],[],true);
+                end
+            else
+                if ~isempty(aCh)
+                    gMu = uMu{aCh(1)};
+                    for i = 2:length(aCh)
+                        gMu = outerProductEvalDiag(gMu,uMu{aCh(i)},1,1);
+                    end
+                end
+                if ~isempty(naCh)
+                    gna = FullTensor(ones(wGamma.sz(1),1), 1, wGamma.sz(1));
+                    for i = 1:length(naCh)
+                        if nargin == 3
+                            gna = outerProductEvalDiag(gna,FullTensor(H{t.dim2ind == naCh(i)}),1,1);
+                        else
+                            gna = outerProductEvalDiag(gna,FullTensor(eye(f.tensors{mu}.sz(t.childNumber(naCh(i))))),[],[],true);
+                        end
+                    end
+                    
+                    if ~isempty(aCh)
+                        gMu = outerProductEvalDiag(gMu,gna,1,1);
+                    else
+                        gMu = gna;
+                    end
+                end
+            end
+            
+            g = outerProductEvalDiag(gMu,gGamma,1,1);
         end
         
         function t = tTTensor(x)

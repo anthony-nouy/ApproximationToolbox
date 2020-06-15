@@ -30,23 +30,22 @@ classdef TensorizedFunction < Function
         function g = TensorizedFunction(f,t)
             % g = TensorizedFunction(f,t)
             %
-            % function g(x1,...,xdim)
-            % identified with a function
-            % f(z) of (d+1)*dim variables
-            % using the Tensorizer t (base b, resolution d, dimension dim)
+            % function g(x1,...,xdim) identified with a function f(z) of 
+            % (d+1)*dim variables using the Tensorizer t (base b, 
+            % resolution d, dimension dim)
             %
-            % For univariate function g(x) (dim=1),
+            % For a univariate function g(x) (dim=1),
             % g(x) = f(i_1,...,i_d,y) with y in [0,1] and i_k in {0,...,b-1}
             % where x = (i + y)b^(-d) with i in {0,...,b^d-1}
             % having the following representation in base b:
             % i = \sum_{k=1}^d i_k b^(k-1) in [0,b^d-1]
             %
-            % For bivariate function g(x1,x2) (dim=2)
+            % For a bivariate function g(x1,x2) (dim=2)
             % - if t.orderingType=1 then
-            % g(x) = f(i_1,...,i_d,j1,....,j_d,y1,y2) with yk in [0,1]
+            % g(x) = f(i_1,...,i_d,j_1,....,j_d,y1,y2) with yk in [0,1]
             % and x1 = (i + y1)b^(-d), x2 = (j + y2)b^(-d)
             % - if t.orderingType=2 then
-            % g(x) = f(i_1,j_1...,i_d,j_d,y1,y2)
+            % g(x) = f(i_1,j_1,...,i_d,j_d,y1,y2)
             %
             % f : Function (function of (d+1)*dim variables)
             % t : Tensorizer
@@ -55,7 +54,7 @@ classdef TensorizedFunction < Function
             if nargin==2 && isa(t,'Tensorizer')
                 g.t = t;
             else
-                error('must provide a Tensorizer')
+                error('Must provide a Tensorizer.')
             end
             g.dim = t.dim;
         end

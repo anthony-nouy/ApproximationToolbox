@@ -125,7 +125,7 @@ classdef TSpaceVectors < TSpace
             if isa(M,'double')
                 M = {M};
             end
-            x.spaces(dims) = cellfun(@(xs,m) m*xs, x.spaces(dims),M,'UniformOutput',0 );
+            x.spaces(dims) = cellfun(@(xs,m) m*xs, x.spaces(dims),M(:),'UniformOutput',0 );
             x.isOrth = 0;
             x = updateProperties(x);
         end

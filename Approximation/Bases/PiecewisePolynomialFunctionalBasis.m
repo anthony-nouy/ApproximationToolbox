@@ -102,7 +102,7 @@ classdef PiecewisePolynomialFunctionalBasis < FunctionalBasis
             pu = unique(h.p);
             u = cell(1,length(pu));
             for k=1:length(u)
-                u{k} = (1+chebychevPoints(pu(k)+1))/2;
+                u{k} = (1+chebyshevPoints(pu(k)+1))/2;
             end
             
             p1 = h.points(1:end-1);

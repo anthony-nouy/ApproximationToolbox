@@ -100,7 +100,7 @@ classdef FullTensorProductFunctionalBasis < FunctionalBasis
             %
             % See also FunctionalBasis/conditionalExpectation
             
-            I = MultiIndices.boundedBy(numel(h.bases)-1);
+            I = MultiIndices.boundedBy(cardinals(h.bases)-1);
             h = SparseTensorProductFunctionalBasis(h.bases,I);
             h = conditionalExpectation(h,dims,varargin{:});
         end
@@ -164,7 +164,7 @@ classdef FullTensorProductFunctionalBasis < FunctionalBasis
         
         function [fproj,output] = projection(H,fun,I)
             % [fproj,output] = projection(H,fun,I)
-            % Projection of function fun on the basis functions of H
+            % Projection of the function fun on the basis functions of H
             %
             % H: FullTensorProductFunctionalBasis
             % fun: function
@@ -183,7 +183,7 @@ classdef FullTensorProductFunctionalBasis < FunctionalBasis
                 ucoeff = timesMatrix(u,HxW,fdims);
                 fproj = FunctionalTensor(ucoeff,H.bases,fdims);
             else
-                error('not implemented')
+                error('Method not implemented.')
             end
         end
         
@@ -210,7 +210,7 @@ classdef FullTensorProductFunctionalBasis < FunctionalBasis
             %      - or tensor of order d whose entries are the evaluations of 
             %           the function on a product grid 
             % grids: cell containing d grids or FullTensorGrid
-            % if one grid have more points than the dimension of the
+            % if one grid has more points than the dimension of the
             % corresponding basis, use magicPoints for the selection of a subset of points
             % adapted to the basis
             % 

@@ -38,7 +38,7 @@ classdef CompositionalModelFunction < Function
             
             f.tree = tree;
             
-            if ~isa(f,'cell')
+            if ~isa(fun,'cell')
                 f.fun = cell(1,tree.nbNodes);
                 f.fun(tree.internalNodes) = {fun};
             else

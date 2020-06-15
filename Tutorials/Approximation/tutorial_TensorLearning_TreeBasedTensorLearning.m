@@ -124,19 +124,16 @@ s.alternatingMinimizationParameters.display = false;
 s.rankAdaptationOptions.earlyStopping = true;
 s.rankAdaptationOptions.earlyStoppingFactor = 10;
 
+s.modelSelection = true;
+s.modelSelectionOptions.type = 'testError';
+
 tic
 [f, output] = s.solve();
-if s.rankAdaptation && isfield(output, 'testErrorIterations')
-    [~,i] = min(output.testErrorIterations);
-    f = output.iterates{i};
-    output.error = output.errorIterations(i);
-    output.testError = output.testErrorIterations(i);
-end
 toc
 
 %% Displays
 errtest = norm(f(xTest) - yTest)/norm(yTest);
-fprintf('Ranks: [%s  ]\n',sprintf('  %i',f.tensor.ranks))
+fprintf('\nRanks: [%s  ]\n',sprintf('  %i',f.tensor.ranks))
 fprintf('Loo error = %d\n',output.error);
 fprintf('Test error = %d\n\n',errtest);
 

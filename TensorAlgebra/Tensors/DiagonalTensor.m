@@ -94,11 +94,11 @@ classdef DiagonalTensor < AlgebraicTensor
             x = TreeBasedTensor(x.tensors,x.tree);
         end
         
-        function n =  storage(x)
+        function n = storage(x)
             n = length(x.data);
         end
         
-        function n =  sparseStorage(x)
+        function n = sparseStorage(x)
             n = nnz(x.data);
         end
         
@@ -245,7 +245,7 @@ classdef DiagonalTensor < AlgebraicTensor
         end
         
         function z = timesTensorTimesMatrixExceptDim(x,y,M,order)
-            ord=1:x.order;
+            ord = 1:x.order;
             ord(order)=[];
             MM = [M{ord}];
             MM = reshape(full(MM),x.sz(1),y.sz(1),numel(ord));
@@ -263,7 +263,7 @@ classdef DiagonalTensor < AlgebraicTensor
                 dims = sort(dims);
                 rep = [1:dims(1),dims(end)+1:x.order];
                 x.sz = x.sz(rep);
-                x.order = numel(dims)+1;
+                x.order = numel(rep);
             end
         end
         
@@ -287,7 +287,7 @@ classdef DiagonalTensor < AlgebraicTensor
             %
             % See also permute
             
-            x.sz=x.sz(dims);
+            x.sz = x.sz(dims);
             x.sz = x.sz(:)';
         end
     end
@@ -309,6 +309,7 @@ classdef DiagonalTensor < AlgebraicTensor
             
             x = DiagonalTensor.create(@rand,rank,order);
         end
+        
         function x = zeros(rank,order)
             % Creates a DiagonalTensor with zero entries
             %
@@ -316,6 +317,7 @@ classdef DiagonalTensor < AlgebraicTensor
             
             x = DiagonalTensor.create(@zeros,rank,order);
         end
+        
         function x = randn(rank,order)
             % Creates a DiagonalTensor with entries obtained from generator randn
             %

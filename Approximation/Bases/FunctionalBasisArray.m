@@ -51,6 +51,7 @@ classdef FunctionalBasisArray < Function
             x.data = data(:);
             x.basis = basis;
             x.sz = sz;
+            x.outputSize = sz;
             x.data = reshape(x.data,[cardinal(basis),sz]);
             
         end
@@ -259,8 +260,8 @@ classdef FunctionalBasisArray < Function
             % Computes the conditional expectation of f with respect to
             % the random variables dims (a subset of 1:d). The expectation
             % with respect to other variables (in the complementary set of
-            % dims) is taken with respect the probability measure given by RandomVector XdimsC
-            % if provided, or with respect the probability measure
+            % dims) is taken with respect to the probability measure given by RandomVector XdimsC
+            % if provided, or with respect to the probability measure
             % associated with the corresponding bases of f.
             % f: FunctionalBasisArray
             % dims: D-by-1 or 1-by-D double
@@ -275,7 +276,7 @@ classdef FunctionalBasisArray < Function
         
         function v = varianceConditionalExpectation(f,alpha)
             % v = varianceConditionalExpectation(f,alpha)
-            % Computes the variance of the conditional expectation of f in dimensions in dims
+            % Computes the variance of the conditional expectation of f in dimensions in alpha
             % f: FunctionalBasisArray
             % alpha: n-by-D double, where D is equal to the number of random variables or n-by-d logical
             % v: n-by-1 double
@@ -354,9 +355,8 @@ classdef FunctionalBasisArray < Function
             % dimension of the basis
             
             [fx,x] = random(f.basis,varargin{:});
-            y = cell2mat(cellfun(@(x) reshape(x,1,numel(fx{1})),fx,'UniformOutput',false)).';
-            y = y*reshape(f.data,cardinal(f.basis),prod(f.sz));
-            y = reshape(y,size(fx{1}));
+            y = fx*reshape(f.data,cardinal(f.basis),prod(f.sz));
+            y = reshape(y,[size(fx,1), f.sz]);
         end
         
         function rv = getRandomVector(f)

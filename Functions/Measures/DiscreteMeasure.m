@@ -33,8 +33,11 @@ classdef DiscreteMeasure < Measure
             % By default, w_i = 1
             
             X.values = values;
-            N = numel(X.values);
-            if nargin==1
+            if ndims(values) == 1
+                values = values(:);
+            end
+            N = size(values, 1);
+            if nargin == 1
                 weights = ones(1,N);
             elseif length(weights)~=N
                 error('Arguments must have the same size.')
@@ -70,9 +73,9 @@ classdef DiscreteMeasure < Measure
         
         function varargout = plot(X,type,varargin)
             % varargout = plot(X,type)
-            % Plots the desired quantity, chosen between 'pdf', 'cdf' of 'icdf'.
+            % Plots a graphical representation of the discrete measure.
             % X: RandomVariable
-            % type: char ('pdf' or 'cdf' or 'icdf')
+            % type: char (not used).
             
             x = X.values(:)';
             y = X.weights(:)';
