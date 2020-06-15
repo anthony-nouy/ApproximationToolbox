@@ -45,7 +45,7 @@ end
 H = FunctionalBases(h);
 
 %% Training and test samples
-x = random(X,100);
+x = random(X,1000);
 y = fun(x);
 xTest = random(X,10000);
 yTest = fun(xTest);
@@ -126,6 +126,26 @@ s.rankAdaptationOptions.earlyStoppingFactor = 10;
 
 s.modelSelection = true;
 s.modelSelectionOptions.type = 'testError';
+
+% DMRG (inner rank adaptation)
+dmrg = false;
+if dmrg
+    % Rank of the initialization
+    s.rank = 3;
+    % Type of rank adaptation: can be 'dmrg' to perform classical DMRG (using
+    % a truncation of the factor to adapt the rank) or 'dmrglowrank' to learn
+    % the factor using a rank-adaptive learning algorithm
+    s.rankAdaptationOptions.type = 'dmrglowrank';
+    % Maximum alpha-rank for all the nodes of the tree
+    s.rankAdaptationOptions.maxRank = 10;
+    % If true: perform an alternating minimization with fixed tree and ranks
+    % after the rank adaptation using DMRG
+    s.rankAdaptationOptions.postAlternatingMinimization = false;
+    % Model selection type when type is 'dmrglowrank': can be 'cvError' to
+    % use a cross-validation estimator of the error or 'testError' to use
+    % the error on a test sample
+    s.rankAdaptationOptions.modelSelectionType = 'cvError';
+end
 
 tic
 [f, output] = s.solve();

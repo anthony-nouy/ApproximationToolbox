@@ -1,4 +1,6 @@
-% Tree-based tensor approximation of tensorized functions using least-squares
+% Tree-based tensor approximation of tensorized functions using least-squares,
+% with an example of model selection using a slope heuristic instead of the 
+% error on a test sample.
 
 % Copyright (c) 2020, Anthony Nouy, Erwan Grelier, Loic Giraldi
 % 
@@ -99,8 +101,11 @@ end
 s.bases = H;
 s.trainingData = {x,y};
 
-s.tolerance.onStagnation = 1e-6;
-s.tolerance.onError = 1e-10;
+% Let the solver go to the maximum number of iterations, to perform model
+% selection a posteriori using the test error and a slope heuristic
+s.tolerance.onStagnation = 0;
+s.tolerance.onError = 0;
+s.rankAdaptationOptions.earlyStopping = false;
 
 s.initializationType = 'canonical';
 
@@ -122,9 +127,6 @@ s.alternatingMinimizationParameters.stagnation = 1e-10;
 
 s.display = true;
 s.alternatingMinimizationParameters.display = false;
-
-s.rankAdaptationOptions.earlyStopping = true;
-s.rankAdaptationOptions.earlyStoppingFactor = 10;
 
 s.modelSelection = true;
 s.modelSelectionOptions.type = 'testError';
@@ -158,3 +160,22 @@ plot(xlin,fun(xlin(:)))
 hold all
 plot(xlin,f(t.map(xlin(:))))
 legend('True function','Approximation')
+
+%% Model selection using a slope heuristic instead of the test error
+select = ModelSelection;
+% Complexity of each model: standard complexity based on the method storage
+select.data.C = select.complexity(output.iterates, @storage, 'standard');
+% Empirical risk associated with each model
+select.data.Rn = cellfun(@(x) s.lossFunction.riskEstimation(x, s.trainingData), output.iterates);
+% Shape of the penalization function
+n = size(x,1);
+select.penshape = @(x) x / n;
+% Gap factor used in the slope heuristic
+select.gapFactor = 2;
+
+[lambdaHat,mHat,lambdaPath,mPath] = select.slopeHeuristic();
+
+fprintf('Model selected using a test sample:         %i, test error = %2.5e.\n', ...
+    output.selectedModelNumber, output.testError)
+fprintf('Model selected using the slope heuristic:   %i, test error = %2.5e.\n', ...
+    mHat, output.testErrorIterations(mHat))
