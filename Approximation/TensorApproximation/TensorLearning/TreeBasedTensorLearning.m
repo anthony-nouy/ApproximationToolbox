@@ -542,6 +542,10 @@ classdef TreeBasedTensorLearning < TensorLearning
                 s.rankAdaptationOptions.modelSelectionType = 'cvError';
             end
             
+            if s.display
+                s.alternatingMinimizationParameters.display= true;
+            end
+            
             output.flag = 0;
             
             [s,f] = initialize(s); % Initialization
