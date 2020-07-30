@@ -28,7 +28,7 @@ FTBT = TreeBasedTensor.randn(T, ranks, sz);
 F = full(FTBT);
 
 %% Samples generation
-p = 0.25; % Proportion of known entries of the tensor
+p = 0.3; % Proportion of known entries of the tensor
 
 N = storage(F);
 n = round(p*N);
@@ -72,6 +72,8 @@ switch c
     case 2
         fprintf('Tensor-train format\n\n')
         s = TreeBasedTensorLearning.TensorTrain(d, SquareLossFunction);
+        isActiveNode = s.isActiveNode;
+        tree = s.tree;
     case 3
         fprintf('Tensor Train Tucker format\n\n')
         s = TreeBasedTensorLearning.TensorTrainTucker(d, SquareLossFunction);
@@ -90,7 +92,7 @@ end
 guess = FullTensor.zeros(sz);
 guess.data(loc) = y / sqrt(prod(sz));
 tr = Truncator('tolerance', eps, 'maxRank', 1);
-guess = tr.hsvd(guess, tree);
+guess = tr.hsvd(guess, tree,isActiveNode);
 
 %% Computation of the approximation
 s.basesEval = H;
@@ -111,7 +113,7 @@ s.rankAdaptation = true;
 s.rankAdaptationOptions.maxIterations = 100;
 s.rankAdaptationOptions.theta = 0.8;
 
-s.treeAdaptation = true;
+s.treeAdaptation = false;
 s.treeAdaptationOptions.maxIterations = 1e2;
 
 s.errorEstimation = true;
