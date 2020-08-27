@@ -36,9 +36,9 @@ classdef Tensorizer
             % Tensorizer : defines a map t from [0,1] to
             % {0,...,b-1}^d x [0,1]^dim
             % t(x) = (i_1,...,i_d,y) with y in [0,1] and i_k in {0,...,b-1}
-            % such that x = (i + y)s^(-d) with i in {0,...,b^d-1}
+            % such that x = (i + y)b^(-d) with i in {0,...,b^d-1}
             % having the following representation in base b:
-            % i = \sum_{k=1}^d i_k b^(k-1) in [0,b^d-1]
+            % i = \sum_{k=1}^d i_k b^(d-k) in [0,b^d-1]
             %
             % t = Tensorizer(b,d,dim)
             % defines a map t from [0,1]^dim to
