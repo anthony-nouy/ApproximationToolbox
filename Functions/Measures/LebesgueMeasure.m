@@ -103,5 +103,18 @@ classdef LebesgueMeasure < Measure
             G = gaussIntegrationRule(X,n);
             G.weights = G.weights*mass(l);
         end
+        
+        function x = random(l,n)
+            % x = random(l,n)
+            % Returns n samples from the uniform distribution over the
+            % support of the measure, is this support is bounded.
+            % l: LebesgueMeasure
+            % n: integer
+            if (l.b - l.a)==Inf
+                error('the support of the Lebesgue measure should be bounded')
+            end
+            x = random(UniformRandomVariable(l.a,l.b),n);
+            
+        end
     end
 end

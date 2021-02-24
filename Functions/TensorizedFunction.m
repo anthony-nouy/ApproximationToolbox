@@ -68,7 +68,11 @@ classdef TensorizedFunction < Function
         end
         
         function s = domain(f)
-            s = support(f.t.X);
+            if ~isempty(f.t.X)
+                s = support(f.t.X);
+            else
+                s = support(ProductMeasure.duplicate(UniformRandomVariable(0,1),f.t.dim));
+            end
         end
     end
 end

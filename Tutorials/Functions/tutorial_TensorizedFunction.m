@@ -22,32 +22,27 @@ clc, clearvars, close all
 %% Identification of a function f(x) with a function g(i1,...,id,y)
 % x is identified with (i_1,....,i_d,y) through a Tensorizer
 
-d = 6; % Resolution
+d = 9; % Resolution
 b = 3; % Scaling factor
 
-X = UniformRandomVariable(0,1);
-Y = UniformRandomVariable(0,1);
-
-t = Tensorizer(b,d,1,X,Y);
+t = Tensorizer(b,d,1);
+t.orderingType = 1;
 fun = @(x) sqrt(x);
 tensorizedfun = t.tensorize(fun);
 tensorizedfun.f.evaluationAtMultiplePoints = true;
 
-pdegree=4;
-p = PolynomialFunctionalBasis(orthonormalPolynomials(Y),0:pdegree);
-bases = tensorizedFunctionFunctionalBases(t,p);
-
-H = FullTensorProductFunctionalBasis(bases);
-grids = magicPoints(bases,random(bases.measure,100));
-G = FullTensorGrid(grids);
-
-funinterp = H.tensorProductInterpolation(tensorizedfun,G);
+pdegree=4; % polynomial degree (with respect to y variable)
+bases = tensorizedFunctionFunctionalBases(t,pdegree);
+funinterp = bases.tensorProductInterpolation(tensorizedfun);
 tr = Truncator();
 tr.tolerance = 1e-9;
+
 funinterp.tensor = tr.ttsvd(funinterp.tensor);
 tensorizedfuninterp = TensorizedFunction(funinterp,t);
+fprintf('Representation ranks = %s\n',num2str(representationRank(funinterp.tensor)))
+fprintf('Storage complexity = %s\n',num2str(storage(funinterp.tensor)))
 
-xtest = random(X,1000);
+xtest = rand(1000,1);
 fxtest = tensorizedfuninterp(xtest);
 ytest  = fun(xtest);
 errL2 = norm(ytest-fxtest)/norm(ytest);
@@ -61,31 +56,24 @@ d = 6; % Resolution
 b = 2; % Scaling factor
 
 t = Tensorizer(b,d,dim);
-X = t.X;
-Y = t.Y;
-t.orderingType = 1;
+t.orderingType = 2; % ordering of variables i_1,....,i_d,y1,j_1,....,j_d,y2  
 fun = UserDefinedFunction(vectorize('1./(1+x1+x2)'),dim);
 fun.evaluationAtMultiplePoints = true;
 tensorizedfun = t.tensorize(fun);
 
-pdegree = 1;
-p = cellfun(@(Y) PolynomialFunctionalBasis(orthonormalPolynomials(Y),0:pdegree),Y.randomVariables,'uniformoutput',false);
-p = FunctionalBases(p);
-
-bases = tensorizedFunctionFunctionalBases(t,p);
-H = FullTensorProductFunctionalBasis(bases);
-grids = magicPoints(bases,random(bases.measure,100));
-G = FullTensorGrid(grids);
-
-funinterp = H.tensorProductInterpolation(tensorizedfun,G);
+pdegree = 2; % polynomial degree (with respect to variables y1, ...,ydim)
+bases = tensorizedFunctionFunctionalBases(t,pdegree);
+funinterp = bases.tensorProductInterpolation(tensorizedfun);
 tr = Truncator();
-tr.tolerance = 1e-9;
+tr.tolerance = 1e-4;
 funinterp.tensor = tr.ttsvd(funinterp.tensor);
 tensorizedfuninterp = TensorizedFunction(funinterp,t);
 fprintf('Representation ranks = %s\n',num2str(representationRank(funinterp.tensor)))
+fprintf('Storage complexity = %s\n',num2str(storage(funinterp.tensor)))
 
-xtest = random(X,1000);
+xtest = rand(1000,dim);
 fxtest = tensorizedfuninterp(xtest);
 ytest  = fun(xtest);
 errL2 = norm(ytest-fxtest)/norm(ytest);
 fprintf('Mean squared error = %d\n',errL2)
+
