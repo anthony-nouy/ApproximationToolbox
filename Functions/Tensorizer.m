@@ -41,12 +41,21 @@ classdef Tensorizer
             % i = \sum_{k=1}^d i_k b^(d-k) in [0,b^d-1]
             %
             % t = Tensorizer(b,d,dim)
-            % defines a map t from [0,1]^dim to
-            % {{0,...,b-1}^d}^dim x [0,1]^dim
+            % defines a map t from [0,1]^dim to 
+            % - {{0,...,b-1}^d}^dim x [0,1]^dim
             % if property orderingType = 1
-            % or from [0,1]^dim to
-            % {{0,...,b-1}^dim}^d x [0,1]^dim
+            % - {{0,...,b-1}^dim}^d x [0,1]^dim
             % if property orderingType = 2
+            % - or {{0,...,b-1}^d x [0,1]}^dim 
+            % if property orderingType = 3   
+            %
+            % t = Tensorizer(b,d,dim,X,Y)
+            % Provides a measure X for the input variable x and a measure Y for 
+            % the local variable y
+            % X : RandomVariable if dim=1 or RandomVector (by default a Lebesgue measure over [0,1]^dim)
+            % Y : RandomVariable if dim=1 or RandomVector (by default a Lebesgue measure over [0,1]^dim)
+            
+            
             
             
             if nargin<3
@@ -77,26 +86,45 @@ classdef Tensorizer
             y = cell(1,t.dim);
             i = cell(1,t.dim);
             for k=1:t.dim
-                uk = t.X.randomVariables{k}.cdf(x(:,k));
+                if ~isempty(t.X)
+                    uk = t.X.randomVariables{k}.cdf(x(:,k));
+                else
+                    uk = x(:,k);
+                end
                 y{k} = Tensorizer.u2z(uk,t.b,t.d);
-                y{k}(:,end) = t.Y.randomVariables{k}.icdf(y{k}(:,end));
+                if ~isempty(t.Y)
+                    y{k}(:,end) = t.Y.randomVariables{k}.icdf(y{k}(:,end));
+                end
                 i{k} = y{k}(:,1:end-1);
                 y{k} = y{k}(:,end);
             end
             y = [y{:}];
             i = [i{:}];
             switch t.orderingType
+                case 1
+                    if nargout~=2
+                        y = [i,y];
+                    end
                 case 2
                     j = cell(1,t.d);
                     for k=1:t.d
                         j{k} = i(:,k:t.d:end);
                     end
                     i = [j{:}];
+                    if nargout~=2
+                        y = [i,y];
+                    end
+                case 3
+                    if nargout~=2
+                        j = cell(1,t.dim);
+                        for k=1:t.dim
+                            j{k} = [i(:,(k-1)*t.d + (1:t.d)) , y(:,k)];                            
+                        end
+                        y = [j{:}];
+                    end
             end
             
-            if nargout~=2
-                y = [i,y];
-            end
+            
         end
         
         function x = inverseMap(t,z)
@@ -105,13 +133,21 @@ classdef Tensorizer
                 switch t.orderingType
                     case 1
                         ik = z(:,(1:t.d)+(k-1)*t.d);
+                        zk = z(:,end-t.dim+k);
                     case 2
                         ik = z(:,k:t.dim:t.dim*t.d);
+                        zk = z(:,end-t.dim+k);
+                    case 3
+                        ik = z(:,(1:t.d)+(k-1)*(t.d+1));
+                        zk = z(:,k*(t.d+1));
                 end
-                zk = z(:,end-t.dim+k);
-                zk = t.Y.randomVariables{k}.cdf(zk);
+                if ~isempty(t.Y)
+                    zk = t.Y.randomVariables{k}.cdf(zk);
+                end
                 u{k} = Tensorizer.z2u([ik,zk],t.b);
-                u{k} = t.X.randomVariables{k}.icdf(u{k});
+                if ~isempty(t.X)
+                    u{k} = t.X.randomVariables{k}.icdf(u{k});
+                end
             end
             x = [u{:}];
         end
@@ -141,20 +177,34 @@ classdef Tensorizer
             % g = tensorizedFunctionFunctionalBases(t,h)
             %
             % t: Tensorizer
-            % h: FunctionalBasis or function_handle or double (for constant basis function) or FunctionalBases
-            % h=1 by default
+            % h: FunctionalBasis or function_handle or integer (for polynomial basis function of degree m) or FunctionalBases
+            % h=0 by default
             
             if nargin==1
-                h=1;
+                h=0;
             end
             
-            if isa(h,'double')
+            if isa(h,'double') && h==0
                 h = @(y) h*ones(size(y));
             end
             
+            if isa(h,'double')
+                if isempty(t.Y)
+                    t.Y = UniformRandomVariable(0,1);
+                    h = PolynomialFunctionalBasis(orthonormalPolynomials(t.Y),0:h);    
+                else
+                    h = cellfun(@(mu) PolynomialFunctionalBasis(orthonormalPolynomials(mu),0:h),t.Y.randomVariables,'uniformoutput',false);
+                    h = FunctionalBases(h);
+                end
+            end
+                        
             if isa(h,'function_handle')
                 h = UserDefinedFunctionalBasis({h});
-                h.measure = t.Y.randomVariables{1};
+                if ~isempty(t.Y)
+                    h.measure = t.Y.randomVariables{1};
+                else
+                    h.measure = UniformRandomVariable(0,1);
+                end
             end
             
             if isa(h,'FunctionalBasis')
@@ -192,7 +242,10 @@ classdef Tensorizer
         function u = z2u(z,b)
             d = size(z,2)-1;
             y = z(:,end);
-            i = baseb2integer(z(:,1:end-1),b);
+            i = z(:,1:end-1);
+            if size(i,2)>1
+                i = baseb2integer(i,b);
+            end
             u = (y+i)*b^(-d);
         end
     end
