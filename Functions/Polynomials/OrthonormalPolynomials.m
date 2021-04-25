@@ -106,14 +106,14 @@ classdef OrthonormalPolynomials < UnivariatePolynomials
         function m = moment(p,list,rv)
             % m = moment(p,list,mu)
             % Computes the integral of products of polynomials of the
-            % same family p of degrees in list, using the gauss integration
+            % family p of degrees in list, using the gauss integration
             % rule. 
             % The integral is with respect to the Measure mu
             % which is taken as the Measure mu associated
             % to p if not provided in input
             % 
             % If list = [i1^1,...,ik^1 ; ... ; i1^n,...,ik^n], then 
-            % m(l) = int \phi_{i1^l}(x)...\phi_{ik^l}(x) dmu(x)
+            % m(l) = int p_{i1^l}(x)...p_{ik^l}(x) dmu(x)
             %
             % p: OrthonormalPolynomials
             % list: n-by-k double
