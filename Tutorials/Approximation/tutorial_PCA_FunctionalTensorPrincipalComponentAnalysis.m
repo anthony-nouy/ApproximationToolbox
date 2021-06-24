@@ -20,7 +20,7 @@
 clearvars; clc; close all
 
 % Choice of the function to approximate
-choice = 2;
+choice = 6;
 switch choice
     case 1
         fprintf('Henoneiles\n')

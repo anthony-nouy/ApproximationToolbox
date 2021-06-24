@@ -184,9 +184,9 @@ classdef Tensorizer
                 h=0;
             end
             
-            if isa(h,'double') && h==0
-                h = @(y) h*ones(size(y));
-            end
+            %if isa(h,'double') && h==0
+            %    h = @(y) h*ones(size(y));
+            %end
             
             if isa(h,'double')
                 if isempty(t.Y)

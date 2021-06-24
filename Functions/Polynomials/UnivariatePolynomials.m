@@ -139,18 +139,21 @@ classdef (Abstract) UnivariatePolynomials
         end
         
         function m = moment(p,list,rv)
-            % m = moment(p,I,X)
-            % Computes the moments of the family of polynomials p_i(X) =
-            % X^i, i in I, of a random variable X, using a gauss
-            % integration rule.
-            % p: UnivariatePolynomials
-            % I: n-by-k array
-            % X: RandomVariable
-            % m: n-by-1 double
+            % m = moment(p,list,mu)
+            % Computes the integral of products of polynomials of the
+            % family p of degrees in list, using the gauss integration
+            % rule. 
+            % The integral is with respect to the Measure mu
+            % which is taken as the Measure mu associated
+            % to p if not provided in input
+            % 
+            % If list = [i1^1,...,ik^1 ; ... ; i1^n,...,ik^n], then 
+            % m(l) = int p_{i1^l}(x)...p_{ik^l}(x) dmu(x)
             %
-            % If k = 1, returns the vector m = (E(p_i(X)): i in I),
-            % if k = 2, returns the vector m = (E(p_i1(X)p_i2(X)): (i1,i2)
-            % in I), etc.
+            % p: UnivariatePolynomials
+            % list: n-by-k double
+            % rv: Measure (optional)
+            % m: n-by-1 double
             
             if nargin == 2
                 rv = p.measure;
