@@ -23,13 +23,13 @@ clc, clearvars, close all
 %% Identification of a bivariate function f(x1,x2) with a function g(i1,j1,...,id,jd,y1,y2)
 % x1 and x2 are identified with (i_1,....,i_d,y1) and (j_1,....,j_d,y2) through a Tensorizer
 
-dim = 1;
-L = 13; % Resolution
+dim = 2;
+L = 12; % Resolution
 b = 2; % Scaling factor
 
 t = Tensorizer(b,L,dim);
 t.orderingType = 2; % ordering of variables 
-fun = UserDefinedFunction(vectorize('1./(1+x1)'),dim);
+fun = UserDefinedFunction(vectorize('1./(1+x1+x2)'),dim);
 fun.evaluationAtMultiplePoints = true;
 tensorizedfun = t.tensorize(fun);
 tensorizedfun.f.evaluationAtMultiplePoints = true;
@@ -46,7 +46,7 @@ FPCA.display = false;
 tree = DimensionTree.balanced(tensorizedfun.f.dim);
 
 fprintf('\nPrescribed tolerance\n')
-tol = 1e-8;
+tol = 1e-12;
 FPCA.tol = tol;
 TPCA.maxRank = inf;
 [f,output] = FPCA.TBApproximation(tensorizedfun,tree);

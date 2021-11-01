@@ -194,7 +194,7 @@ fprintf('Mean squared error = %d\n',err)
 fprintf('\nPrescribed tolerance\n')
 tol = 1e-10;
 FPCA.tol = tol;
-TPCA.maxRank = inf;
+FPCA.maxRank = inf;
 [f,output] = FPCA.TBApproximation(fun,tree);
 
 fprintf('Number of evaluations = %d\n',output.numberOfEvaluations);
