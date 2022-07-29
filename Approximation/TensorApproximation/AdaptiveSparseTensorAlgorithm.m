@@ -129,7 +129,7 @@ classdef AdaptiveSparseTensorAlgorithm
             
             if s.display || s.displayIterations
                 fprintf('\n+-----------+------------+------------+\n');
-                fprintf('| Dim Basis | Nb Samples |  CV error  |\n');
+                fprintf('| Dim basis | Nb samples |  CV error  |\n');
                 fprintf('+-----------+------------+------------+\n');
             end
             f = [];
