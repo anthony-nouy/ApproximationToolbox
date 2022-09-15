@@ -77,15 +77,26 @@ classdef LebesgueMeasure < Measure
             s = [l.a,l.b];
         end
         
+        function s = truncatedSupport(l)
+            % s = truncatedSupport(X)
+            % s: 1-by-2 double
+            
+            s = support(l);
+            
+            if s(1) == -Inf || s(2) == Inf
+                error('truncated support not defined for Lebesgue measure on unbounded domain')
+            end
+        end
+        
+        
         function p = orthonormalPolynomials(l,varargin)
-            % p = orthonormalPolynomials(l,n)
-            % Returns the n first orthonormal polynomials according to the Lebesgue measure on an interval
+            % p = orthonormalPolynomials(l)
+            % Returns the orthonormal polynomials according to the Lebesgue measure on an interval
             % l: LebesgueMeasure
-            % n: integer (optional)
             % p: ShiftedOrthonormalPolynomials
             
-            p = LegendrePolynomials(varargin{:});
-            p.orthogonalPolynomialsNorms = p.orthogonalPolynomialsNorms*sqrt(mass(l));
+            p = LegendrePolynomialsLebesgue(varargin{:});
+            %p.orthogonalPolynomialsNorms = p.orthogonalPolynomialsNorms*sqrt(mass(l));
             if (l.a~=-1) || (l.b~=1)
                 p = ShiftedOrthonormalPolynomials(p,(l.a+l.b)/2,(l.b-l.a)/2);
             end
@@ -115,6 +126,12 @@ classdef LebesgueMeasure < Measure
             end
             x = random(UniformRandomVariable(l.a,l.b),n);
             
+        end
+
+        function m = moment(l,I)
+            assert(mass(l)<inf,'unbounded moments')
+            m = moment(UniformRandomVariable(l.a,l.b),I)*(l.b-l.a);
+
         end
     end
 end

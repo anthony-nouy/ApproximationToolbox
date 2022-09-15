@@ -53,6 +53,17 @@ classdef DiscreteRandomVariable < RandomVariable
                 X.probabilities = X.probabilities/sum(X.probabilities);
             end
         end
+
+
+        function p = orthonormalPolynomials(X,varargin)
+            % p = orthonormalPolynomials(X)
+            % Returns the orthonormal polynomials according to the DiscreteRandomVariable X
+            % X: DiscreteRandomVariable
+            % p: DiscretePolynomials
+ 
+            p = DiscretePolynomials(X);
+
+        end
         
         function Xstd = getStandardRandomVariable(X)
             % Xstd = getStandardRandomVariable(X)
@@ -86,6 +97,9 @@ classdef DiscreteRandomVariable < RandomVariable
             y = X.probabilities(:)';
             delta = max(x)-min(x);
             ax = [min(x)-delta/10,max(x)+delta/10];
+            
+            [x,i] = sort(x);
+            y=y(i);
             
             switch type
                 case 'cdf'

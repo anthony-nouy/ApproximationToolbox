@@ -33,7 +33,7 @@ classdef RandomVariable < ProbabilityMeasure
             % Random variable named name, the moments property remains empty as long as the moments have not been computed using the method moment
             % name: char
             % X: RandomVariable
-            
+
             X.name = name;
             X.moments = [];
         end
@@ -142,18 +142,16 @@ classdef RandomVariable < ProbabilityMeasure
             % n: integer
             % G: IntegrationRule
             
-            p = orthonormalPolynomials(X,n+1);
+            p = orthonormalPolynomials(X,n-1);
             flag = false;
             if isa(p,'ShiftedOrthonormalPolynomials')
+                shiftb = p.b;
+                shifts = p.s;
                 p = p.p;
                 flag = true;
             end
-            c = p.recurrenceCoefficients;
-            if size(c,2)<n
-                c = p.recurrence(p.measure,n-1);
-            else
-                c = c(:,1:n);
-            end
+            c = p.recurrenceMonic(n-1);
+            c = c(:,1:n);
             
             % Jacobi matrix
             if n == 1
@@ -172,10 +170,17 @@ classdef RandomVariable < ProbabilityMeasure
             weights = reshape((V(1,:).^2)./sqrt(sum(V.^2,1)),1,n);
             
             if flag
-                points = transfer(p.measure,X,points);
+                points = points*shifts + shiftb;
             end
             
             G = IntegrationRule(points,weights);
+        end
+
+
+        function Y = shift(X,b,s)
+
+            Y = ShiftedRandomVariable(X,b,s);
+
         end
         
         function A = lhsRandom(X,n,p)

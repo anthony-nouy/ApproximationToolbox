@@ -448,7 +448,7 @@ classdef MultiIndices
             %
             % If L is an array of size nx1 containing a set of indices, I is a MultiIndices containing the product set LxLx...xL (d times)
             
-            if nargin==1 && isa(L,'cell')
+            if nargin==1 && isa(L,'cell') && all(cellfun(@(x) isa(x,'double'),L))
                 d = length(L);
             elseif nargin==2 && isa(L,'double')
                 L = repmat({L(:)},1,d);
@@ -460,8 +460,8 @@ classdef MultiIndices
             I = cell(1,d);
             [I{:}] = ind2sub(N,(1:prod(N))');
             for i=1:d
-                L{i} = L{i}(:);
-                I{i} = L{i}(I{i});
+                %L{i} = L{i}(:);
+                I{i} = L{i}(I{i},:);
             end
             I = [I{:}];
             I = MultiIndices(I);

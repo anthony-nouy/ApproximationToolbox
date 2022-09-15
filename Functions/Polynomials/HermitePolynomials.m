@@ -20,36 +20,35 @@
 classdef HermitePolynomials < OrthonormalPolynomials
     
     methods
-        function  p = HermitePolynomials(n)
-            %  p = HermitePolynomials(varargin)
+        function  p = HermitePolynomials(varargin)
+            % p = HermitePolynomials()
             % Polynomials defined on R and orthonormal with respect to the standard gaussian measure 1/sqrt(2*pi)*exp(-x^2/2)
-            % n: integer, indicates the highest degree for which a polynomial can be computed with the stored recurrence coefficients (optional, default value: 50)
-            % p: HermitePolynomials
+            % p: HermitePolynomials (norms of monic polynomials)
             
             p.measure= NormalRandomVariable(0,1);
-            if ~exist('n','var')
-                n = 50; % Default maximum degree for the polynomials
-            end
-            
-            [p.recurrenceCoefficients, p.orthogonalPolynomialsNorms] = p.recurrence(n);
         end
-    end
-    
-    methods (Static, Hidden)
-        function [recurr, norms] = recurrence(n)
-            % [recurr, norms] = recurrence(n)
-            % Computes the coefficients of the three-term recurrence used to construct the Hermite polynomials, and the norms of the polynomials
-            % The three-term recurrence writes:
+
+
+        function [recurr,norms] = recurrenceMonic(~,n)
+            % function [recurr,norms] = recurrenceMonic(p,n)
+            % Computes the coefficients of the three-term recurrence used to construct the monic polynomials
             % p_{n+1}(x) = (x-a_n)p_n(x) - b_n p_{n-1}(x), a_n and b_n are
             % the three-term recurrence coefficients
+            % p : HermitePolynomials
             % n: integer
-            % recurr: 2-by-n double
-            % norms: 1-by-n double
-            
+            % recurr: 2-by-(n+1) double
+            % norms: 1-by-(n+1) double
             a = zeros(1,n+1);
             b = 0:n;
-            recurr = sparse([a;b]);
-            norms = sqrt(factorial(0:n));
+            
+            recurr = [a;b];
+            if nargout==2
+                norms = sqrt(factorial(0:n));
+            end
+
         end
+        
     end
+    
+
 end

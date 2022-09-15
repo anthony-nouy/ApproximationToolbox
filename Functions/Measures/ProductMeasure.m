@@ -82,9 +82,9 @@ classdef ProductMeasure < Measure
             % p: ProductMeasure
             % x: n-by-1 double
             
-            if ~all(cellfun(@(p) isa(p,'ProbabilityMeasure'),p.measures))
-                error('The object is not a ProbabilityMeasure.')
-            end
+            %if ~all(cellfun(@(p) isa(p,'ProbabilityMeasure'),p.measures))
+            %    error('The object is not a ProbabilityMeasure.')
+            %end
             if nargin > 2
                 warning('random should have only two input arguments.')
             end
@@ -175,13 +175,34 @@ classdef ProductMeasure < Measure
         function m = ndims(p)
             m = sum(cellfun(@ndims,p.measures));
         end
+
+
+
+        function m = moment(p,I)
+            % function m = moment(p,I)
+            % Returns the moments m_i(p) = integral x^i dp(x) of the measure p 
+            % with i listed in I
+            % p: ProductMeasure
+            % I: k-by-d array of integers, with d the dimension 
+            % m : k-by-1 vector with m(i) = m_{I(i,:)}(X) 
+
+            m = ones(size(I,1));
+            n=cellfun(@ndims,p.measures);
+            I = mat2cell(I,size(I,1),n);
+            ms = cellfun(@(p,x) moment(p,x),p.measures(:),I(:),'uniformoutput',false);
+            for k=1:length(p.measures)
+                m = m.*ms{k}(:);
+            end
+
+        end
+
     end
     
     methods (Static)
         function p = duplicate(nu,d)
             measures = cell(1,d);
             measures(:) = {nu};
-            p = ProductMeasure(measures)
+            p = ProductMeasure(measures);
         end
     end
 end

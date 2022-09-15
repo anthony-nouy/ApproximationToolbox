@@ -20,8 +20,8 @@
 classdef DiscretePolynomials < OrthonormalPolynomials
     
     methods
-        function p = DiscretePolynomials(x)
-            % p = DiscretePolynomials(x)
+        function p = DiscretePolynomials(x,varargin)
+            % p = DiscretePolynomials(x,varargin)
             % Polynomials orthonormal with respect to a discrete measure
             %
             % x: DiscreteRandomVariable
@@ -32,28 +32,31 @@ classdef DiscretePolynomials < OrthonormalPolynomials
             end
             
             p.measure = x;
-            
-            n = numel(x.values)-1;
-            
-            [p.recurrenceCoefficients, p.orthogonalPolynomialsNorms] = p.recurrence(x, n);
+                        
         end
-    end
-    
-    methods (Static, Hidden)
-        function [recurr,norm] = recurrence(r, max)
-            % [recurr, norms] = recurrence(r,n)
-            % Computes the recurrence coefficients used to construct the polynomials of the orthonormal basis, until a condition over the inner product is not met
-            % The three-term recurrence writes:
+
+
+        function [recurr,norms] = recurrenceMonic(p,n)
+            % function [recurr,norms] = recurrenceMonic(p,n)
+            % Computes the coefficients of the three-term recurrence used to construct the monic polynomials
             % p_{n+1}(x) = (x-a_n)p_n(x) - b_n p_{n-1}(x), a_n and b_n are
             % the three-term recurrence coefficients
-            % r: RandomVariable
-            % max: integer
-            % recurr: 2-by-n double
-            % norms: 1-by-n double
-            
-            norm = zeros(1,max+1);
-            a = zeros(1,max+1);
-            b = zeros(1,max+1);
+            % p : DiscretePolynomials
+            % n: integer
+            % recurr: 2-by-(n+1) double
+            % norms: 1-by-(n+1) double (norms of monic polynomials)
+
+            r = p.measure;
+
+            max = numel(r.values)-1;
+
+            if n>max
+                error('the requested degree exceeds the maximal degree')
+            end
+
+            norm = zeros(1,n+1);
+            a = zeros(1,n+1);
+            b = zeros(1,n+1);
             
             i = 1;
             cond = 1;
@@ -64,7 +67,7 @@ classdef DiscretePolynomials < OrthonormalPolynomials
             pn = @(x) 1;
             pnp1 = @(x) (x-a(1)).*pn(x);
             
-            while cond && i <= max+1
+            while cond && i <= n+1
                 i = i+1;
                 pnm1 = pn;
                 pn = pnp1;
@@ -76,10 +79,12 @@ classdef DiscretePolynomials < OrthonormalPolynomials
                 pnp1 = @(x) (x-a(i)).*pn(x) - b(i)*pnm1(x);
                 cond = isOrth(pnp1,pn,pnm1,r); % Condition of orthogonality
             end
-            
+            if cond==0
+                warning('problem of conditioning - requested number of recurrence terms not reached')
+            end
             recurr = [a(1:i-1) ; b(1:i-1)]; % Recurrence coefficients
-            norm = sqrt(norm(1:i-1)); % Polynomial norms
-            
+            norms = sqrt(norm(1:i-1)); % Polynomial norms
+
             function b = isOrth(pnp1,pn,pnm1,r)
                 % function b = isOrth(pnp1,pn,pnm1,r)
                 % Function that determines if the polynomial pnp1 is orthogonal to the polynomials pn and pnm1, according to the RandomVariable r
@@ -111,6 +116,10 @@ classdef DiscretePolynomials < OrthonormalPolynomials
                 G = integrationRule(r);
                 d = G.integrate(@(x) p1(x).*p2(x));
             end
+
         end
+
+
     end
+
 end
