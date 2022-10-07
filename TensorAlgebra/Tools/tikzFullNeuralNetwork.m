@@ -21,10 +21,8 @@
 % You should have received a copy of the GNU Lesser General Public License
 % along with ApproximationToolbox.  If not, see <https://www.gnu.org/licenses/>.
 
-function h = tikzTreeBasedTensorNeuralNetwork(x,inputLayer,varargin)
-% function h = tikzTreeBasedTensorNeuralNetwork(x,inputLayer)
-% x: TreeBasedTensor
-% inputLayer : boolean (true by default)
+function h = tikzFullNeuralNetwork(network)
+% function h = tikzTreeBasedTensorNeuralNetwork(network)
 if nargin==1
     inputLayer=1;
 else
@@ -32,8 +30,6 @@ else
 end
 
 
-output = plotNeuralNetwork(x,inputLayer,varargin{:});
-network = output.network;
 h = '\begin{tikzpicture}[xscale=15,yscale=10]  ';
 h = [h,' \tikzstyle{neuron}=[circle,ball color = red,scale=0.2] '];
 h = [h,' \tikzstyle{featureneuron}=[circle,ball color = yellow,scale=0.2] '];
