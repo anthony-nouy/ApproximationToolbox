@@ -215,19 +215,21 @@ classdef OrthonormalPolynomials < UnivariatePolynomials
             if ~isempty(list)
                 i = max(list);
                 
-                recurr = recurrenceMonic(P,i+1);
+                recurr = recurrenceMonic(P,i);
                 a = recurr(1,:);
                 b = recurr(2,:);
 
                 px = zeros(length(x),i+1);
                 px(:,1) = 1;
-                px(:,2) = (x(:) - a(1))/sqrt(b(2));
-                for n = 3:i+1
-                    px(:,n) = (x(:) - a(n-1)).*px(:,n-1) - sqrt(b(n-1))*px(:,n-2);
-                    px(:,n) = px(:,n)/sqrt(b(n));
+                if i>0
+                    px(:,2) = (x(:) - a(1))/sqrt(b(2));
+                    for n = 3:i+1
+                        px(:,n) = (x(:) - a(n-1)).*px(:,n-1) - sqrt(b(n-1))*px(:,n-2);
+                        px(:,n) = px(:,n)/sqrt(b(n));
+                    end
                 end
-                
-                px = px(:,list+1);
+
+                px = px(:,list+1)/sqrt(mass(P.measure));
             else
                 px = [];
             end
