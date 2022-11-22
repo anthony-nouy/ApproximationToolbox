@@ -76,6 +76,38 @@ classdef PiecewisePolynomialFunctionalBasis < FunctionalBasis
                 hx = hx(:,indices);
             end
         end
+
+        function hx = evalDerivative(h,k,x,indices)
+            % hx = evalDerivative(h,k,x,indices)
+            % Evaluates the k-th derivative of the functional basis at the points x
+            % h: PiecewisePolynomialFunctionalBasis
+            % x: N-by-d array
+            % hx: N-by-n array
+            
+            pos = elementNumber(h,x);
+            p1 = h.points(1:end-1);
+            p2 = h.points(2:end);
+            l = p2-p1;
+            u = (x-p1(pos))./l(pos);
+            U = UniformRandomVariable(0,1);
+            pol = PolynomialFunctionalBasis(orthonormalPolynomials(U),0:max(h.p));
+            pu = pol.evalDerivative(k,u);
+            hx = sparse([],[],[],length(x),cardinal(h),length(x)*max(h.p+1));
+            for i=1:length(h.points)-1
+                I=(pos==i);
+                if ~isempty(I)
+                    J = sum(h.p(1:i-1)+1)+(1:h.p(i)+1);
+                    scale = l(i)/(h.points(end)-h.points(1));
+                    hx(I,J)=pu(I,1:h.p(i)+1)/sqrt(scale)*l(i)^(-k);
+                end
+            end
+            
+            if nargin==4
+                hx = hx(:,indices);
+            end
+        end
+
+
         
         function n = cardinal(h)
             n = sum(h.p+1);

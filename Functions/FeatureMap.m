@@ -36,11 +36,13 @@ classdef FeatureMap < Function
         function y = eval(f,x)
             % y = eval(f,x)
             % Evaluates the function map at the points x. The function map must map to R^n
-            % k: FeatureMap
+            % f: FeatureMap
             % x: N-by-d array
             % y: N-by-n array
             
             y = f.featureMap(x);
         end
+
+
     end
 end

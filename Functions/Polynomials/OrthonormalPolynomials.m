@@ -252,15 +252,16 @@ classdef OrthonormalPolynomials < UnivariatePolynomials
 
             px = zeros(length(x),i+1);
             px(:,1) = 0;
-            px(:,2) = 1/sqrt(b(2));
-            
+            if i>0
+                px(:,2) = 1/sqrt(b(2));
+            end
             Pn = polyval(P,0:i,x);
-            
+
             for n = 3:i+1
                 px(:,n) = Pn(:,n-1) + (x(:) - a(n-1)).*px(:,n-1) - sqrt(b(n-1))*px(:,n-2);
                 px(:,n) = px(:,n)/sqrt(b(n));
             end
-            px = px(:,list+1)./repmat(norms(list+1),length(x),1);
+            px = px(:,list+1);
         end
         
         function px = dnPolyval(P,n,list,x)
@@ -286,10 +287,12 @@ classdef OrthonormalPolynomials < UnivariatePolynomials
                 
                 px = zeros(length(x),i+1);
                 px(:,1) = 0;
-                if k == 1
-                    px(:,2) = 1;
-                else
-                    px(:,2) = 0;
+                if i>0
+                    if k == 1
+                        px(:,2) = 1/sqrt(b(2));
+                    else
+                        px(:,2) = 0;
+                    end
                 end
                 for j = 3:i+1
                     px(:,j) = k*pxOld(:,j-1) + (x(:) - a(j-1)).*px(:,j-1) - sqrt(b(j-1))*px(:,j-2);
