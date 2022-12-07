@@ -17,15 +17,15 @@
 % You should have received a copy of the GNU Lesser General Public License
 % along with ApproximationToolbox.  If not, see <https://www.gnu.org/licenses/>.
 
-classdef LegendrePolynomials < OrthonormalPolynomials
+classdef LegendrePolynomialsLebesgue < OrthonormalPolynomials
 
     methods
-        function p = LegendrePolynomials(varargin)
+        function p = LegendrePolynomialsLebesgue(varargin)
             % p = LegendrePolynomials(varargin)
-            % Polynomials defined on [-1,1], orthonormal with respect to the standard uniform measure 1/2
-            % p: LegendrePolynomials
+            % Polynomials defined on [-1,1], orthonormal with respect to the Lebesgue measure  
+            % p: LegendrePolynomialsLebesgue  
 
-            p.measure= UniformRandomVariable(-1,1);
+            p.measure= LebesgueMeasure(-1,1);
 
         end
 
@@ -40,10 +40,9 @@ classdef LegendrePolynomials < OrthonormalPolynomials
             % norms: 1-by-(n+1) double (norms of monic polynomials)
             a = zeros(1,n+1);
             b = (0:n).^2 ./ (4*(0:n).^2 - 1);
-
             recurr = [a;b];
             if nargout==2
-                norms = sqrt(1./(2*(0:n)+1)).*2.^(0:n).*factorial(0:n).^2 ./ factorial(2*(0:n));
+                norms = sqrt(1./(2*(0:n)+1)).*2.^(0:n).*factorial(0:n).^2 ./ factorial(2*(0:n)) * sqrt(2);
             end
 
         end

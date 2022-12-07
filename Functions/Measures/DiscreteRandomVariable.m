@@ -53,6 +53,17 @@ classdef DiscreteRandomVariable < RandomVariable
                 X.probabilities = X.probabilities/sum(X.probabilities);
             end
         end
+
+
+        function p = orthonormalPolynomials(X,varargin)
+            % p = orthonormalPolynomials(X)
+            % Returns the orthonormal polynomials according to the DiscreteRandomVariable X
+            % X: DiscreteRandomVariable
+            % p: DiscretePolynomials
+ 
+            p = DiscretePolynomials(X);
+
+        end
         
         function Xstd = getStandardRandomVariable(X)
             % Xstd = getStandardRandomVariable(X)
@@ -81,33 +92,43 @@ classdef DiscreteRandomVariable < RandomVariable
             % Plots the desired quantity, chosen between 'pdf', 'cdf' or 'icdf'.
             % X: RandomVariable
             % type: char ('pdf' or 'cdf' or 'icdf')
-            
-            x = X.values(:)';
-            y = X.probabilities(:)';
-            delta = max(x)-min(x);
-            ax = [min(x)-delta/10,max(x)+delta/10];
-            
-            switch type
-                case 'cdf'
-                    x = x(:)';
-                    y = cumsum(y);
-                    plot([ax(1),x;x,ax(2)],[0,y;0,y],varargin{:});
-                    %hold on
-                    %plot(x,y,'o');
-                    %hold off
-                    xlim(ax)
-                    ylim([0,max(y)*1.1])
-                case 'pdf'
-                    plot([x;x],[zeros(1,length(x));y],varargin{:});
-                    %hold on
-                    %plot(x,y,'o');
-                    %hold off
-                    xlim(ax)
-                    ylim([0,max(y)*1.1])
-                case 'icdf'
-                    fplot(@(u) reshape(icdf(X,u(:)),size(u)),[0,1]);
+
+            dim = size(X.values,2);
+            switch dim
+                case 1
+                    x = X.values(:)';
+                    y = X.probabilities(:)';
+                    delta = max(x)-min(x);
+                    ax = [min(x)-delta/10,max(x)+delta/10];
+
+                    [x,i] = sort(x);
+                    y=y(i);
+
+                    switch type
+                        case 'cdf'
+                            x = x(:)';
+                            y = cumsum(y);
+                            plot([ax(1),x;x,ax(2)],[0,y;0,y],varargin{:});
+                            %hold on
+                            %plot(x,y,'o');
+                            %hold off
+                            xlim(ax)
+                            ylim([0,max(y)*1.1])
+                        case 'pdf'
+                            plot([x;x],[zeros(1,length(x));y],varargin{:});
+                            %hold on
+                            %plot(x,y,'o');
+                            %hold off
+                            xlim(ax)
+                            ylim([0,max(y)*1.1])
+                        case 'icdf'
+                            fplot(@(u) reshape(icdf(X,u(:)),size(u)),[0,1]);
+                        otherwise
+                            error('wrong argument type')
+                    end
+
                 otherwise
-                    error('wrong argument type')
+                    error('nor implemented in dimension >1')
             end
             if nargout >= 1
                 varargout{1} = x;

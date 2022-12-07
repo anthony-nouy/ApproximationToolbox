@@ -577,6 +577,7 @@ classdef TreeBasedTensorLearning < TensorLearning
             % Working set paths
             if any(cellfun(@(x) x.basisAdaptation,s.linearModelLearning)) && ...
                     isempty(s.basesAdaptationPath)
+                dssdsd
                 s.basesAdaptationPath = adaptationPath(s.bases);
             end
             

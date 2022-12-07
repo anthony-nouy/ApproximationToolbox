@@ -121,7 +121,7 @@ classdef Function
             fg = evalOnTensorGrid(f,grid);
             varargout = cell(1,nargout);
             
-            [varargout{:}] = surf(grids{1},grids{2},fg.data,varargin{:});
+            [varargout{:}] = surf(grids{1},grids{2},fg.data',varargin{:});
         end
         
         function falpha = partialEvaluation(f,notalpha,xnotalpha)

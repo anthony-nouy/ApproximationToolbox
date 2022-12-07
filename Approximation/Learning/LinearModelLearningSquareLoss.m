@@ -99,10 +99,13 @@ classdef LinearModelLearningSquareLoss < LinearModelLearning
                 W = spdiags(sqrt(s.weights),0,size(A,1),size(A,1));
                 A = W*A;
                 y = W*y;
+                s.basisEval = A;
+                s.trainingData{2} = y;
             end
             
             if ~s.basisAdaptation
                 if ~s.regularization
+                    
                     [x,output] = s.solveOLS();
                 else
                     if n==1

@@ -19,11 +19,7 @@
 
 classdef OrthonormalPolynomials < UnivariatePolynomials
     
-    properties (Hidden)
-        recurrenceCoefficients
-        orthogonalPolynomialsNorms
-    end
-    
+
     methods
         function ok = isOrthonormal(p)
             % ok = isOrthonormal(p)
@@ -58,8 +54,6 @@ classdef OrthonormalPolynomials < UnivariatePolynomials
             else
                 try
                     ok = all(full((p.measure == q.measure) & ...
-                        all(p.recurrenceCoefficients == q.recurrenceCoefficients) & ...
-                        all(p.orthogonalPolynomialsNorms == q.orthogonalPolynomialsNorms) & ...
                         all(p.isOrthonormal == q.isOrthonormal)));
                 catch
                     ok = 0;
@@ -186,30 +180,27 @@ classdef OrthonormalPolynomials < UnivariatePolynomials
             
             i = max(list);
             
-            recurr = p.recurrenceCoefficients;
-            norms = p.orthogonalPolynomialsNorms;
-            
-            if i >= size(recurr,2)
-                error(['Can generate polynomials up to degree ', ...
-                    num2str(size(recurr,2) - 1) '.']);
-            end
+            recurr = recurrenceMonic(p,i);
+            a = recurr(1,:);
+            b = recurr(2,:);            
             
             c = zeros(i+1,i+1);
             c(1,1) = 1;
             
             if i > 0
                 c(2,2:end) = c(1,1:end-1);
-                c(2,:) = c(2,:) - recurr(1,1)*c(1,:);
+                c(2,:) = c(2,:) - a(1)*c(1,:);
+                c(2,:) = c(2,:)/sqrt(b(2));
             end
             
             if i > 1
                 for n = 2:i
                     c(n+1,2:end) = c(n,1:end-1);
-                    c(n+1,:) = c(n+1,:) - recurr(1,n)*c(n,:) - recurr(2,n)*c(n-1,:);
+                    c(n+1,:) = c(n+1,:) - a(n)*c(n,:) - sqrt(b(n))*c(n-1,:);
+                    c(n+1,:)=c(n+1,:)/sqrt(b(n+1));
                 end
             end
             
-            c = c./repmat(norms(1:i+1)',1,size(c,1));
             c = sparse(c(list+1,:));
         end
         
@@ -224,28 +215,21 @@ classdef OrthonormalPolynomials < UnivariatePolynomials
             if ~isempty(list)
                 i = max(list);
                 
-                if i >= size(P.recurrenceCoefficients,2)
-                    error(['Can generate polynomials up to degree ', ...
-                        num2str(size(P.recurrenceCoefficients,2) - 1) ...
-                        ' (', num2str(i), ' asked).']);
-                end
-                
-                a = full(P.recurrenceCoefficients(1,1:i+1));
-                b = full(P.recurrenceCoefficients(2,1:i+1));
-                norms = P.orthogonalPolynomialsNorms(1:i+1);
-                
+                recurr = recurrenceMonic(P,i);
+                a = recurr(1,:);
+                b = recurr(2,:);
+
                 px = zeros(length(x),i+1);
                 px(:,1) = 1;
-                px(:,2) = (x(:) - a(1));
-                for n = 3:i+1
-                    px(:,n) = (x(:) - a(n-1)).*px(:,n-1) - b(n-1)*px(:,n-2);
+                if i>0
+                    px(:,2) = (x(:) - a(1))/sqrt(b(2));
+                    for n = 3:i+1
+                        px(:,n) = (x(:) - a(n-1)).*px(:,n-1) - sqrt(b(n-1))*px(:,n-2);
+                        px(:,n) = px(:,n)/sqrt(b(n));
+                    end
                 end
-                
-                for i = list+1
-                    px(:,i) = px(:,i) / norms(i);
-                end
-                
-                px = px(:,list+1);
+
+                px = px(:,list+1)/sqrt(mass(P.measure));
             else
                 px = [];
             end
@@ -261,20 +245,23 @@ classdef OrthonormalPolynomials < UnivariatePolynomials
             
             i = max(list);
             
-            a = P.recurrenceCoefficients(1,1:i+1);
-            b = P.recurrenceCoefficients(2,1:i+1);
-            norms = P.orthogonalPolynomialsNorms(1:i+1);
-            
+
+            recurr = recurrenceMonic(P,i);
+            a = recurr(1,:);
+            b = recurr(2,:);
+
             px = zeros(length(x),i+1);
             px(:,1) = 0;
-            px(:,2) = 1;
-            
-            Pn = polyval(P,0:i,x);
-            
-            for n = 3:i+1
-                px(:,n) = Pn(:,n-1)*norms(n-1) + (x(:) - a(n-1)).*px(:,n-1) - b(n-1)*px(:,n-2);
+            if i>0
+                px(:,2) = 1/sqrt(b(2));
             end
-            px = px(:,list+1)./repmat(norms(list+1),length(x),1);
+            Pn = polyval(P,0:i,x);
+
+            for n = 3:i+1
+                px(:,n) = Pn(:,n-1) + (x(:) - a(n-1)).*px(:,n-1) - sqrt(b(n-1))*px(:,n-2);
+                px(:,n) = px(:,n)/sqrt(b(n));
+            end
+            px = px(:,list+1);
         end
         
         function px = dnPolyval(P,n,list,x)
@@ -288,29 +275,32 @@ classdef OrthonormalPolynomials < UnivariatePolynomials
             % px: N-by-d double
             
             i = max(list);
+
+            recurr = recurrenceMonic(P,i);
+            a = recurr(1,:);
+            b = recurr(2,:);
             
-            a = P.recurrenceCoefficients(1,1:i+1);
-            b = P.recurrenceCoefficients(2,1:i+1);
-            norms = P.orthogonalPolynomialsNorms(1:i+1);
-            
-            px = polyval(P,0:i,x).*repmat(norms,length(x),1);
+            px = polyval(P,0:i,x);
             
             for k = 1:n
                 pxOld = px;
                 
                 px = zeros(length(x),i+1);
                 px(:,1) = 0;
-                if k == 1
-                    px(:,2) = 1;
-                else
-                    px(:,2) = 0;
+                if i>0
+                    if k == 1
+                        px(:,2) = 1/sqrt(b(2));
+                    else
+                        px(:,2) = 0;
+                    end
                 end
                 for j = 3:i+1
-                    px(:,j) = k*pxOld(:,j-1) + (x(:) - a(j-1)).*px(:,j-1) - b(j-1)*px(:,j-2);
+                    px(:,j) = k*pxOld(:,j-1) + (x(:) - a(j-1)).*px(:,j-1) - sqrt(b(j-1))*px(:,j-2);
+                    px(:,j) = px(:,j)/sqrt(b(j));
                 end
                 
             end
-            px = px(:,list+1)./repmat(norms(list+1),length(x),1);
+            px = px(:,list+1);
         end
         
         function [fx,x] = random(P,list,n,rv)
@@ -354,11 +344,7 @@ classdef OrthonormalPolynomials < UnivariatePolynomials
             % points = roots(p,n)
             % Returns the roots of the polynomial of degree n
             
-            try
-                c = p.recurrenceCoefficients(:,1:n);
-            catch
-                c = p.recurrence(p.measure,n-1);
-            end
+                c = recurrenceMonic(p,n-1);
             
             % Jacobi matrix
             if n == 1

@@ -66,15 +66,14 @@ classdef NormalRandomVariable < RandomVariable
         end
         
         function p = orthonormalPolynomials(X,varargin)
-            % p = orthonormalPolynomials(X,n)
-            % Returns the n first orthonormal polynomials according to the NormalRandomVariable X
+            % p = orthonormalPolynomials(X)
+            % Returns the orthonormal polynomials according to the NormalRandomVariable X
             % X: NormalRandomVariable
-            % n: integer (optional)
-            % p: HermitePolynomials
+            % p: HermitePolynomials or ShiftedOrthonormalPolynomials
             
             p = HermitePolynomials(varargin{:});
             if X~=NormalRandomVariable(0,1)
-                warning('ShiftedOrthonormalPolynomials are created')
+                %warning('ShiftedOrthonormalPolynomials are created')
                 p = ShiftedOrthonormalPolynomials(p,X.mu,X.sigma);
             end
             

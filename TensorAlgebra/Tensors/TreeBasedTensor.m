@@ -1563,25 +1563,46 @@ classdef TreeBasedTensor < AlgebraicTensor
             hold off
         end
         
-        function NN = neuralNetwork(x)
+        function NN = neuralNetwork(x,inputLayer)
+            % function NN = neuralNetwork(x,inputLayer)
+            % x: TreeBasedTensor
+            % inputLayer : true (by default) or false  
+            if nargin==1
+                inputLayer = 1;
+            else 
+                inputLayer = double(inputLayer);
+            end
+
             nbNeurons = 0;
             neuronsGroup = [];
             neuronsIndexInGroup = [];
             neuronsLayer = [];
             neuronsParentGroup = [];
-            depth = max(x.tree.level)+2;
+            depth = max(x.tree.level)+2 + inputLayer;
             widths = zeros(1,depth+2);
-            widths(1) = sum(x.sz);
+            if inputLayer
+                widths(1)=x.order;
+                for k=1:x.order
+                    nalpha = 1;
+                    neuronsGroup = [neuronsGroup , -x.tree.dim2ind(k) - max(x.tree.dim2ind)];
+                    neuronsLayer = [neuronsLayer , ones(1,nalpha)];
+                    nbNeurons = nbNeurons + nalpha;
+                    neuronsParentGroup = [neuronsParentGroup, -x.tree.dim2ind(k)];
+                    neuronsIndexInGroup = [neuronsIndexInGroup , 1:nalpha];
+                end
+
+            end
+            widths(1+inputLayer) = sum(x.sz);
             for k=1:x.order
                 nalpha = x.sz(k);
                 neuronsGroup = [neuronsGroup , -x.tree.dim2ind(k)*ones(1,nalpha)];
-                neuronsLayer = [neuronsLayer , ones(1,nalpha)];
+                neuronsLayer = [neuronsLayer , ones(1,nalpha) + inputLayer];
                 nbNeurons = nbNeurons + nalpha;
                 neuronsParentGroup = [neuronsParentGroup, x.tree.dim2ind(k)*ones(1,nalpha)];
                 neuronsIndexInGroup = [neuronsIndexInGroup , 1:nalpha];
             end
             for alpha=1:x.tree.nbNodes
-                l = length(unique(x.tree.level(x.tree.descendants(alpha))))+2;
+                l = length(unique(x.tree.level(x.tree.descendants(alpha))))+2 + inputLayer;
                 ralpha = x.ranks(alpha);
                 widths(l) = widths(l)+ralpha;
                 neuronsGroup = [neuronsGroup , alpha*ones(1,ralpha)];
@@ -1603,32 +1624,52 @@ classdef TreeBasedTensor < AlgebraicTensor
             
         end
         
-        function varargout = plotNeuralNetwork(x,varargin)
-            network = neuralNetwork(x);
+        function varargout = plotNeuralNetwork(x,inputLayer,varargin)            
+            % function NN = plotNeuralNetwork(x,inputLayer,varargin)
+            % x: TreeBasedTensor
+            % inputLayer : true (by default) or false  
+            % varargin : additional plot parameters
+            % NN : contains the parameters of the neural network
+            if nargin==1
+                inputLayer=1;
+            else
+                inputLayer=double(inputLayer);
+            end
             
+            network = neuralNetwork(x,inputLayer);
+             
             [xnodes,ynodes]=network.tree.treelayout;
             xn=zeros(network.nbNeurons,1);
             yn=zeros(network.nbNeurons,1);
             Hsize = max(xnodes)-min(xnodes);
             Wsize = max(ynodes)-min(ynodes);
             h = Hsize/max(network.widths);
-            yshift = Wsize/(network.depth-2)/10;
+            yshift = Wsize/(network.depth-2-inputLayer)/10;
             ybottom = min(ynodes) + yshift;
             for k=1:network.nbNeurons
                 alpha = network.neuronsGroup(k);
                 nalpha = nnz(network.neuronsGroup==alpha);
                 i = network.neuronsIndexInGroup(k);
-                xn(k) = xnodes(abs(network.neuronsGroup(k))) + h*(-nalpha/2 + i);
-                if network.neuronsGroup(k)<0
-                    yn(k) = ybottom;
+                if inputLayer && network.neuronsLayer(k)==1
+                    repgroup = abs(network.neuronsGroup(k)+max(x.tree.dim2ind));
                 else
-                    yn(k) = ynodes(abs(network.neuronsGroup(k))) + Wsize/(network.depth-2) + yshift;
+                    repgroup = abs(network.neuronsGroup(k));
+                end
+                xn(k) = xnodes(repgroup) + h*(-nalpha/2 + i);
+                if network.neuronsGroup(k)<0
+                    if inputLayer && network.neuronsLayer(k)==1
+                        yn(k) = ybottom- Wsize/(network.depth-2-inputLayer);
+                    else
+                        yn(k) = ybottom;
+                    end
+                else
+                    yn(k) = ynodes(repgroup) + Wsize/(network.depth-2-inputLayer) + yshift;
                 end
             end
             
             hneurons = plot(xn,yn,'ko',varargin{:});
             hold on
-            edges = zeros(1,2);
+            edges = zeros(0,2);
             for k=1:network.nbNeurons
                 p = find(network.neuronsGroup == network.neuronsParentGroup(k));
                 xnp = xn(p);

@@ -92,10 +92,9 @@ classdef EmpiricalRandomVariable < RandomVariable
         end
         
         function p = orthonormalPolynomials(X,varargin)
-            % p = orthonormalPolynomials(X,n)
-            % Returns the n first orthonormal polynomials according to the EmpiricalRandomVariable X
+            % p = orthonormalPolynomials(X)
+            % Returns the orthonormal polynomials according to the EmpiricalRandomVariable X
             % X: EmpiricalRandomVariable
-            % n: integer (optional)
             % p: EmpiricalPolynomials
             
             p = EmpiricalPolynomials(X,varargin{:});

@@ -61,14 +61,13 @@ classdef BetaRandomVariable < RandomVariable
         end
         
         function p = orthonormalPolynomials(X,varargin)
-            % ORTHONORMALPOLYNOMIALS - n first orthonormal polynomials according to the measure of the BetaRandomVariable
+            % ORTHONORMALPOLYNOMIALS - orthonormal polynomials according to the measure of the BetaRandomVariable
             %
-            % p = ORTHONORMALPOLYNOMIALS(X,n)
+            % p = ORTHONORMALPOLYNOMIALS(X)
             % X: BetaRandomVariable
-            % n: integer (optional)
-            % p: JacobiPolynomials
+            % p: ShiftedOrthonormalPolynomials (shifted Jacobi polynomials)
             
-            p = JacobiPolynomials(X.alpha,X.beta,varargin{:});
+            p = ShiftedOrthonormalPolynomials(JacobiPolynomials(X.alpha-1,X.beta-1),1/2,1/2);
         end
         
         function p = getParameters(X)

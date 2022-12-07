@@ -93,10 +93,11 @@ classdef ProbabilityMeasureWithRadonDerivative < ProbabilityMeasure
             s = truncatedSupport(nu.mu);
         end
         
-        function r = random(nu,n)
-            % r = random(nu,n)
+        function r = random(nu,n,x0,varargin)
+            % r = random(nu,n,x0)
             % nu: ProbabilityMeasureWithRadonDerivative
             % n: integer
+            % x0 : initial point for slice sampling (optional)
             % r: n-by-1 double
             
             if nargin > 2
@@ -108,8 +109,19 @@ classdef ProbabilityMeasureWithRadonDerivative < ProbabilityMeasure
             if numel(n)>1
                 error('n must be an integer.')
             end
+            if nargin==3
+                r = slicesample(x0,n,'pdf', @(x)abs(pdf(nu,x)),varargin{:});
+            else
+                ok = false;
+                while ~ok
+                    try         
+                        r = slicesample(random(nu.mu),n,'pdf', @(x)abs(pdf(nu,x)),varargin{:});
+                        ok = true;
+                    end
+                end
+            end
+                    
             
-            r = slicesample(random(nu.mu),n,'pdf', @(x)abs(pdf(nu,x)));
         end
         
         function marg = marginal(nu, ind)

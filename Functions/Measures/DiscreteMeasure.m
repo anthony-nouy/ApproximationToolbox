@@ -33,9 +33,9 @@ classdef DiscreteMeasure < Measure
             % By default, w_i = 1
             
             X.values = values;
-            if ndims(values) == 1
-                values = values(:);
-            end
+            %if ndims(values) == 1
+            %    values = values(:);
+            %end
             N = size(values, 1);
             if nargin == 1
                 weights = ones(1,N);
@@ -76,17 +76,24 @@ classdef DiscreteMeasure < Measure
             % Plots a graphical representation of the discrete measure.
             % X: RandomVariable
             % type: char (not used).
-            
-            x = X.values(:)';
-            y = X.weights(:)';
-            delta = max(x)-min(x);
-            ax = [min(x)-delta/10,max(x)+delta/10];
-            
-            plot([x;x],[zeros(1,length(x));y],varargin{:});
-            
-            xlim(ax)
-            ylim([0,max(y)*1.1])
-            
+            dim = size(X.values,2);
+
+            switch dim
+                case 1
+                    x = X.values(:)';
+                    y = X.weights(:)';
+                    delta = max(x)-min(x);
+                    ax = [min(x)-delta/10,max(x)+delta/10];
+
+                    plot([x;x],[zeros(1,length(x));y],varargin{:});
+
+                    xlim(ax)
+                    ylim([0,max(y)*1.1])
+                otherwise
+                    error('plot not implemented for dimension >1')
+
+            end
+
             if nargout >= 1
                 varargout{1} = x;
             end
@@ -94,13 +101,25 @@ classdef DiscreteMeasure < Measure
                 varargout{2} = y;
             end
         end
-        
+
         function G = integrationRule(X)
             points = X.values;
             G = IntegrationRule(points(:),X.weights);
             
         end
         
+
+        function p = orthonormalPolynomials(X,varargin)
+            % p = orthonormalPolynomials(X)
+            % Returns the orthonormal polynomials according to the DiscreteRandomVariable X
+            % X: DiscreteMeasure
+            % p: DiscretePolynomials
+ 
+            p = DiscretePolynomials(X);
+
+        end
+
+
         function r = random(X,n,varargin)
             % r = random(X,n)
             % Generates n random numbers according to the probability distribution obtained by rescaling the DiscreteMeasure

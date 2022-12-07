@@ -293,13 +293,33 @@ classdef RandomVector < ProbabilityMeasure
                 v{i} = variance(rv.randomVariables{i});
             end
         end
+
+        function m = moment(rv,I)
+            % function m = moment(X,I)
+            % Returns the moments m_i(X) = E(X^i) of X with i listed in I
+            % X: RandomVector
+            % I: k-by-d array of integers, with d the dimension of the
+            % random vector
+            % m : k-by-1 vector with m(i) = m_{I(i,:)}(X) 
+
+            if ~isa(rv.copula,'IndependentCopula')
+                error('Not implemented for non IndependentCopula.')
+            end
+
+            m = ones(size(I,1),1);
+            for k=1:numel(rv)
+                mk = moment(rv.randomVariables{k},I(:,k));
+                m = m.*mk(:);
+            end
+
+        end
         
         function s = support(rv)
             % s = support(rv)
             % s: cell array containing the supports of random variables
             
             if ~isa(rv.copula,'IndependentCopula')
-                error('Not implemented for non IndenpendentCopula.')
+                error('Not implemented for non IndependentCopula.')
             end
             s = cell(1,numel(rv));
             for k = 1:numel(rv)
