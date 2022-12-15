@@ -393,7 +393,84 @@ classdef DimensionTree
             p = [pa,gamma,flip(pb)];
         end
         
-        
+        function [T,modifiedNodes] = changeRoot(T,nod)
+            % Change the root node of a dimension tree.
+            % 
+            % function [Tnew,modifiedNodes] = changeRoot(T,k)
+            % returns a new dimension tree Tnew whose root is the node k 
+            % and the modified nodes in T
+            % 
+            % If k is a leaf node of T, a new node is created, associated with 
+            % dimension T.dims{k}
+            %
+            % T : DimensionTree
+            % k: integer
+            % Tnew : DimensionTree
+            % modifiedNodes : array of integers
+
+            if T.root == nod
+                modifiedNodes=[];
+                return
+            end
+
+            A = T.adjacencyMatrix;
+
+            a = T.ascendants(nod);
+            a = [nod,a];
+            modifiedNodes = union(nod,nonzeros(T.children(:,nod))');
+            for i=1:length(a)-1
+                A(a(i),a(i+1)) = true;
+                A(a(i+1),a(i)) = false;
+                modifiedNodes = union(modifiedNodes,[a(i+1),nonzeros(T.children(:,a(i+1)))']);
+            end
+            
+            
+            if T.isLeaf(nod)
+                n = T.nbNodes;
+                Anew = false(n+1,n+1);
+                Anew(1:n,1:n)=A;
+                Anew(nod,n+1)=true;                
+                dim2ind = T.dim2ind;
+                dim2ind(T.dims{nod})=n+1;
+            else
+                Anew = A;
+                dim2ind = T.dim2ind;
+            end
+            T = DimensionTree(dim2ind,Anew);
+            
+
+        end
+
+
+        function T = addChild(T,nod)
+            % Add a child node to the node k 
+            % of a dimension tree T and returns 
+            % a new dimension tree. 
+            %
+            % If k is not leaf node, the new node is associated 
+            % with a new dimension length(T.dim2ind)+1 
+            %
+            % If k is a leaf node, the new node is associated 
+            % with the dimension of node k
+            %
+            % function T = addChild(T,k)
+            % T : DimensionTree
+            % k : integer
+
+            A = T.adjacencyMatrix;
+            n = T.nbNodes;
+            Anew = false(n+1,n+1);
+            Anew(1:n,1:n)=A;
+            Anew(nod,n+1)=true;
+            if ~T.isLeaf(nod)
+                dim2ind = [T.dim2ind,n+1];                
+            else
+                dim2ind = T.dim2ind;
+                dim2ind(dim2ind==nod)=n+1;
+            end
+            T = DimensionTree(dim2ind,Anew);
+        end
+
         function [subT,nod] = subDimensionTree(T,r)
             % Extracts a sub dimension tree
             %

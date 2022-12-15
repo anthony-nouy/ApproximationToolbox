@@ -181,6 +181,68 @@ classdef TreeBasedTensor < AlgebraicTensor
         function x = minus(x,y)
             x = x + (-y);
         end
+
+        function x = changeRoot(x,nod)
+            % Change the root node of a dimension tree
+            % 
+            % function xnew = changeRoot(x,nod)
+            % returns a new tensor associated with the 
+            % dimension tree T = changeRoot(x.tree,nod)
+            % with nod as the new root
+            %
+            % nod should be an active node
+            %             
+            % If nod is an active leaf node of x.tree, then T has 
+            % a new node associated with dimension x.tree.dims{nod}, 
+            % that is a new child of nod in the new tree T
+            % 
+            % If the rank of the initial root node x.tree.root is greater
+            % than one, then a new dimension is created 
+            % and the resulting tensor has order 
+            % x.order + 1
+
+            if nod==x.tree.root
+                return
+            end
+            if ~x.isActiveNode(nod)
+                error('Can not make an inactive node the root node')
+            end
+
+            if x.ranks(x.tree.root)>1
+                x.tree = x.tree.addChild(x.tree.root);
+                x.tensors{end+1} = [];
+                x = updateProperties(x); 
+                x = changeRoot(x,nod);
+            else
+
+                t = x.tree;
+                [tnew,modifNod] = t.changeRoot(nod);
+                for k=modifNod
+                    if x.isActiveNode(k) && ~t.isLeaf(k) 
+                        p = nonzeros(t.parent(k));
+                        ch = nonzeros(t.children(:,k))';
+                        pnew = nonzeros(tnew.parent(k));
+                        chnew = nonzeros(tnew.children(:,k))';
+                        [~,r] = ismember([chnew,pnew],[ch,p]);
+                        x.tensors{k} = permute(x.tensors{k},r);
+                    end
+                end
+                if t.isLeaf(nod)
+                    x.tensors{end+1} = [];
+                    x.isActiveNode = [x.isActiveNode,false];
+                    p = nonzeros(t.parent(nod));
+                    ch = t.nbNodes+1;
+                    chnew = nonzeros(tnew.children(:,nod))';
+                    [~,r] = ismember(chnew,[ch,p]);
+                    x.tensors{nod} = permute(x.tensors{nod},r); 
+                end
+                x.tree = tnew;
+                
+                x = updateProperties(x);
+            end
+
+
+        end
         
         function x = subTensor(x,varargin)
             assert(nargin == 1+x.order, 'Wrong number of input arguments.');
@@ -786,6 +848,13 @@ classdef TreeBasedTensor < AlgebraicTensor
         function z = times(x,y)
             if isa(x,'double') || isa(y,'double')
                 z = mtimes(x,y);
+            elseif isa(x,'TreeBasedTensor') && isa(y,'TreeBasedTensor')
+                z = kron(x,y);
+                I = cell(1,x.order);
+                for k=1:x.order
+                    I{k}=(1:x.sz(k)+1:x.sz(k)^2)';
+                end
+                z = z.subTensor(I{:});
             else
                 error('Method times not implemented.')
             end
