@@ -201,7 +201,7 @@ classdef OrthonormalPolynomials < UnivariatePolynomials
                 end
             end
             
-            c = sparse(c(list+1,:));
+            c = sparse(c(list+1,:))/sqrt(mass(p.measure));
         end
         
         function px = polyval(P,list,x)
