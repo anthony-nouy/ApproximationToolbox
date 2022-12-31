@@ -110,3 +110,52 @@ plotLabelsAtNodes(T,{'A','B'},2:3,...
 hold on
 plotEdges(T,[],'k-','linewidth',1)
 
+
+
+%% Change the root of a tree
+d = 8;
+tree = DimensionTree.balanced(d);
+figure(6)
+subplot(3,2,1)
+plot(tree)
+title('Nodes indices before changing the root')
+subplot(3,2,2)
+plotDims(tree)
+title('Nodes dimensions before changing the root')
+newtree = tree.changeRoot(5);
+subplot(3,2,3)
+plot(newtree)
+title('Nodes indices after changing the root to node 5')
+subplot(3,2,4)
+plotDims(tree)
+title('Nodes dimensions after changing the root to node 5')
+newtree=tree.changeRoot(11);
+subplot(3,2,5)
+plot(newtree)
+title('Nodes indices after changing the root to leaf node 11')
+subplot(3,2,6)
+plotDims(newtree)
+title('Nodes dimensions after changing the root to leaf node 11')
+
+               
+%% Add a child to a node
+d = 8;
+tree = DimensionTree.balanced(d);
+figure(7)
+subplot(2,2,1)
+tree.plot()
+title('Nodes indices before changing the root')
+newtree = tree.addChild(5);
+subplot(2,2,2)
+newtree.plot()
+title('Nodes indices after adding a child to node 5')
+newtree = tree.addChild(11);
+subplot(2,2,3)
+newtree.plot()
+title('Nodes indices after adding a child to leaf node 11')
+newtree = tree.addChild(1);
+subplot(2,2,4)
+newtree.plot()
+title('Nodes indices after adding a child to root node 1')
+
+

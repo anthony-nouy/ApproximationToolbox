@@ -159,6 +159,58 @@ axis off
 
 axis off
 subplot(1,2,2)
-output = x.plotNeuralNetwork('linewidth',.5,'markersize',3,'markerfacecolor','k')   ;
+output = x.plotNeuralNetwork(false,'linewidth',.5,'markersize',3,'markerfacecolor','k')   ;
 axis off
 title('Corresponding neural network')
+
+
+%% Algebraic operations
+d = 8;
+tree = DimensionTree.linear(d);
+sz = 10*ones(1,d);
+T1 = TreeBasedTensor.rand(tree, 'random',sz)
+T2 = TreeBasedTensor.rand(tree, 'random',sz)
+fprintf('ranks of T1   : %s\n', num2str(T1.ranks))
+fprintf('ranks of T2   : %s\n', num2str(T2.ranks))
+fprintf('\nAddition of tensors:\n--------------------\n')
+Tplus = T1+T2;
+fprintf('ranks of T1+T2: %s\n', num2str(Tplus.ranks))
+fprintf('\nSubstraction of tensors:\n----------------------\n')
+Tminus= T1-T2;
+fprintf('ranks of T1-T2: %s\n', num2str(Tminus.ranks))
+fprintf('\nHadamard product of tensors:\n-------------------------\n')
+Ttimes = T1.*T2;
+fprintf('ranks of T1*T2: %s\n', num2str(Ttimes.ranks))
+fprintf('\nNorm of tensors:\n--------------------\n')
+fprintf('norm of T1 = %d\n',T1.norm())
+fprintf('norm of T1*T2 = %d\n',Ttimes.norm())
+
+
+%% Changing root node of a tree based tensor
+
+d = 5;
+tree = DimensionTree.balanced(d);
+sz = randi([4,8], 1, d);
+ranks = randi([4,8], 1, tree.nbNodes);
+T1 = TreeBasedTensor.rand(tree, ranks ,sz);
+figure(10)
+subplot(2,2,1)
+plot(T1)
+title('Nodes indices with root 1')
+num2 = 2;
+T2 = T1.changeRoot(num2) ;
+subplot(2,2,2)
+plot(T2)
+title(['Nodes indices with root ' num2str(num2)])
+num3 = 9;
+T3 = T1.changeRoot(num3) ;
+subplot(2,2,3)
+plot(T3)
+title(['Nodes indices with root ' num2str(num3)])
+T3bis = T2.changeRoot(num3);
+subplot(2,2,4)
+plot(T3bis)
+title(['Nodes indices with root ' num2str(num3) ,  ...
+    ' from format with root ' , num2str(num2)])
+norm(T3-T3bis)/(norm(T3)+norm(T3bis))*2
+

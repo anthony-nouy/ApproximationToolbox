@@ -47,7 +47,7 @@ classdef EmpiricalPolynomials < OrthonormalPolynomials
             % Computes the coefficients of the three-term recurrence used to construct the monic polynomials
             % p_{n+1}(x) = (x-a_n)p_n(x) - b_n p_{n-1}(x), a_n and b_n are
             % the three-term recurrence coefficients
-            % p : DiscretePolynomials
+            % p : EmpiricalPolynomials
             % n: integer
             % recurr: 2-by-(n+1) double
             % norms: 1-by-(n+1) double (norms of monic polynomials)
@@ -71,7 +71,7 @@ classdef EmpiricalPolynomials < OrthonormalPolynomials
             cond = 1;
 
             norms(1) = 1;
-            a(1) = sum(xij*wts(:))/length(xi);
+            a(1) = sum(xij*wts(:));
             b(1) = 0;
 
             while cond && i <= n+1

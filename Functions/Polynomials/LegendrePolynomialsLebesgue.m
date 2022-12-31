@@ -21,7 +21,7 @@ classdef LegendrePolynomialsLebesgue < OrthonormalPolynomials
 
     methods
         function p = LegendrePolynomialsLebesgue(varargin)
-            % p = LegendrePolynomials(varargin)
+            % p = LegendrePolynomialsLebesgue(varargin)
             % Polynomials defined on [-1,1], orthonormal with respect to the Lebesgue measure  
             % p: LegendrePolynomialsLebesgue  
 
