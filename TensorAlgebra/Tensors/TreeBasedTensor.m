@@ -2232,7 +2232,7 @@ classdef TreeBasedTensor < AlgebraicTensor
         end
     end
     
-    methods (Static,Hidden)
+    methods (Static)
         function isActiveNode = randomIsActiveNode(tree)
             % RANDOMISACTIVENODE - Random list of active nodes
             %
@@ -2252,5 +2252,7 @@ classdef TreeBasedTensor < AlgebraicTensor
                 isActiveNode(tree.dim2ind(p))=false;
             end
         end
+
+
     end
 end

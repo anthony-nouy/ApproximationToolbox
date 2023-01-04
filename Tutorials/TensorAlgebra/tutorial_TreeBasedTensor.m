@@ -42,7 +42,10 @@ subplot(1,2,2)
 plotDims(T)
 title('Nodes dimensions')
 
-% TreeBasedTensor: random generation
+%% TreeBasedTensor: random generation
+d = 20;
+rangOfArity = [2,3];
+T = DimensionTree.random(d,rangOfArity);
 x = TreeBasedTensor.rand(T,'random','random','random')
 
 figure(3)
@@ -56,67 +59,26 @@ subplot(1,3,3)
 plotWithLabelsAtNodes(x.tree,representationRank(x))
 title('Representation ranks')
 
-%% Truncation of a TreeBasedTensor with prescribed rank
-tr = Truncator();
-tr.tolerance = 0;
-tr.maxRank = randi(4);
-x = TreeBasedTensor.rand(T,'random','random','random');
-xr = tr.hsvd(x);
-fprintf('Prescribed rank, error = %d\n',norm(x-xr)/norm(x));
-
-%% Truncation of a TreeBasedTensor with prescribed relative precision
+%% Tensor train Tucker format (or Extended Tensor Train format)
 d = 10;
-T = DimensionTree.random(d,[3,3]);
-x = TreeBasedTensor.rand(T,'random','random');
+T = DimensionTree.linear(d);
+ranks = [1,randi(2,1,T.nbNodes-1)];
+sz = 3*ones(1,d);
+x = TreeBasedTensor.rand(T,ranks,sz);
 
-tr = Truncator();
-tr.tolerance = 1e-8;
+figure(21)
+subplot(1,2,1);plot(x);title('Active nodes')
+subplot(1,2,2);plotDims(T);title('Nodes dimensions')
 
-tr.hsvdType = 1; % root to leaves truncation
-xr1 = tr.hsvd(x);
-err1 = norm((x)-(xr1))/norm((x));
-fprintf('Root to leaves: prescribed tolerance = %.1d, error = %.1d\n',tr.tolerance,err1);
+% With a permutation of dimensions
+rperm = randperm(d);
+T = DimensionTree.linear(rperm);
+x = TreeBasedTensor.rand(T,ranks,sz);
 
-tr.hsvdType = 2; % leaves to root truncation
-xr2 = tr.hsvd(x);
-err2 = norm((x)-(xr2))/norm((x));
-fprintf('Leaves to root: prescribed tolerance = %.1d, error = %.1d\n',tr.tolerance,err2);
+figure(22)
+subplot(1,2,1);plot(x);title('Active nodes')
+subplot(1,2,2);plotDims(T);title('Nodes dimensions')
 
-figure(4)
-clf
-plot(xr2,representationRank(xr2));
-title('Representation ranks')
-
-%% Truncation of a FullTensor
-d = 5;
-rangOfArity = [2,3];
-T = DimensionTree.random(d,rangOfArity);
-
-sz = randi([8,10],1,d);
-activeNodes=TreeBasedTensor.randomIsActiveNode(T);
-
-A = FullTensor.randn(sz);
-tr = Truncator();
-tr.tolerance = 5e-1;
-tr.maxRank = Inf;
-Ar = tr.hsvd(A,T,activeNodes);
-err = norm(A-full(Ar))/norm(A);
-fprintf('Tolerance = %.1d, error = %.1d\n',tr.tolerance,err);
-
-figure(10)
-clf
-plot(Ar,representationRank(Ar));
-title('Representation ranks')
-
-tr.tolerance = 1e-2;
-Ar = tr.hsvd(A,T,activeNodes);
-err = norm(A-full(Ar))/norm(A);
-fprintf('Tolerance = %.1d, error = %.1d\n',tr.tolerance,err);
-
-figure(11)
-clf
-plot(Ar,representationRank(Ar));
-title('Representation ranks')
 
 %% Tensor train format
 d = 10;
@@ -140,36 +102,31 @@ subplot(1,2,1);plot(x);title('Active nodes')
 subplot(1,2,2);plotDims(T);title('Nodes dimensions')
 
 
-%% Plotting neural network associated with a tree tensor network
-d=8;
-tree = DimensionTree.random(d);
-sz = 10*ones(1,d);
-ranks = randi([3,8],1,tree.nbNodes);
-ranks(tree.root)=1;
-x = TreeBasedTensor.rand(tree,ranks,sz);
-figure(31)
-clf
-subplot(1,2,1)
-[N,E,H] = plotWithLabelsAtNodes(x.tree,x.ranks);
-set(N,'markersize',12,'markerfacecolor','k')
-set(H,'Interpreter','latex','fontsize',24);
-set(E,'linewidth',1)
-title('Dimension tree and ranks at nodes')
-axis off
-
-axis off
-subplot(1,2,2)
-output = x.plotNeuralNetwork(false,'linewidth',.5,'markersize',3,'markerfacecolor','k')   ;
-axis off
-title('Corresponding neural network')
+%% Activate and inactivate nodes
+d = 5;
+tree = DimensionTree.balanced(d);
+x1 = TreeBasedTensor.rand(tree,'random','random');
+figure(21)
+plot(x1)
+title('Initial tensor')
+x2 = x1.inactivateNodes([5,9]);
+fprintf('check x1 - x2 = 0 : \n%d\n',norm(x1-x2)/norm(x1))
+figure(22)
+plot(x2)
+title('Inactivate nodes [5,9]')
+x3 = x2.activateNodes([5,9]);
+fprintf('check x1 - x3 = 0 : \n%d\n',norm(x1-x3)/norm(x1))
+figure(23)
+plot(x3)
+title('Reactivate nodes [5,9]')
 
 
 %% Algebraic operations
 d = 8;
 tree = DimensionTree.linear(d);
 sz = randi([3,10],1,d);
-T1 = TreeBasedTensor.rand(tree, 'random',sz)
-T2 = TreeBasedTensor.rand(tree, 'random',sz)
+T1 = TreeBasedTensor.rand(tree, 'random',sz);
+T2 = TreeBasedTensor.rand(tree, 'random',sz);
 fprintf('ranks of T1   : %s\n', num2str(T1.ranks))
 fprintf('ranks of T2   : %s\n', num2str(T2.ranks))
 fprintf('\nAddition of tensors:\n--------------------\n')
@@ -223,22 +180,28 @@ title(['Nodes indices with root ' num2str(num3) ,  ...
 norm(T3-T3bis)/(norm(T3)+norm(T3bis))*2
 
 
-%% Activate and inactivate nodes
-d = 5;
-tree = DimensionTree.balanced(d);
-x1 = TreeBasedTensor.rand(tree,'random','random');
-figure(21)
-plot(x1)
-title('Initial tensor')
-x2 = x1.inactivateNodes([5,9]);
-fprintf('check x1 - x2 = 0 : \n%d\n',norm(x1-x2)/norm(x1))
-figure(22)
-plot(x2)
-title('Inactivate nodes [5,9]')
-x3 = x2.activateNodes([5,9]);
-fprintf('check x1 - x3 = 0 : \n%d\n',norm(x1-x3)/norm(x1))
-figure(23)
-plot(x3)
-title('Reactivate nodes [5,9]')
+%% Plotting neural network associated with a tree tensor network
+d=8;
+tree = DimensionTree.random(d);
+sz = 10*ones(1,d);
+ranks = randi([3,8],1,tree.nbNodes);
+ranks(tree.root)=1;
+x = TreeBasedTensor.rand(tree,ranks,sz);
+figure(31)
+clf
+subplot(1,2,1)
+[N,E,H] = plotWithLabelsAtNodes(x.tree,x.ranks);
+set(N,'markersize',12,'markerfacecolor','k')
+set(H,'Interpreter','latex','fontsize',24);
+set(E,'linewidth',1)
+title('Dimension tree and ranks at nodes')
+axis off
+
+axis off
+subplot(1,2,2)
+output = x.plotNeuralNetwork(false,'linewidth',.5,'markersize',3,'markerfacecolor','k')   ;
+axis off
+title('Corresponding neural network')
+
 
 

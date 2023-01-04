@@ -220,24 +220,31 @@ classdef FullTensor < AlgebraicTensor
             % i: array of integers or 'all'
             % y: FullTensor of order d
             % Use squeeze to remove dimensions
-            
-            if x.order==1
-                x = sum(x.data);
-            elseif isa(i,'char') && strcmpi(i,'all')
-                x = sum(x.data,'all');
-            else
+
+            i=sort(i);
+            for k=length(i):-1:1
+                x.data = sum(x.data,i(k));
+            end
+            x.sz(i) = 1;
+            x = FullTensor(x.data,x.order,x.sz);
+
+%            if x.order==1
+%                x = sum(x.data);
+%            elseif isa(i,'char') && strcmpi(i,'all')
+%                x = sum(x.data,'all');
+%            else
                 %i=sort(i);
                 %for k=length(i):-1:1
                 %    x.data = sum(x.data,i(k));
                 %end
-                x.data = sum(x.data,i);
-                x.sz(i) = [];
-                if isempty(x.sz)
-                    x = x.data;
-                else
-                    x = FullTensor(x.data,x.order-length(i),x.sz);
-                end
-            end
+%                x.data = sum(x.data,i);
+%                x.sz(i) = [];
+%                if isempty(x.sz)
+%                    x = x.data;
+%                else
+%                    x = FullTensor(x.data,x.order-length(i),x.sz);
+%                end
+%            end
         end
         
         function z = kron(x,y)
