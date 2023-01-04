@@ -136,6 +136,48 @@ classdef CanonicalTensor < TuckerLikeTensor
                 ind = [mu ; 3];
             end
         end
+
+
+        function x = treeBasedTensor(x,varargin)
+            % x = treeBasedTensor(y,tree,isActiveNodes)
+            % Converts a DiagonalTensor y into a TreeBasedTensor
+            %
+            % y: CanonicalTensor
+            % tree: DimensionTree (linear tree by default)
+            % isActiveNodes = logical of size 1-by-tree.nbNodes (true by default)
+            % x: TreeBasedTensor
+
+            if nargin==1 || isempty(varargin{1})
+                t=DimensionTree.linear(x.order);
+            else
+                t=varargin{1};
+            end
+            if nargin<3
+                isActiveNode = true(1,t.nbNodes);
+            else
+                isActiveNode = varargin{2};
+            end            
+
+            if ~isa(x.space,'TSpaceVectors')
+                error('property space should be a TSpaceVectors')
+            end
+
+            V = x.space.spaces;
+            x = treeBasedTensor(x.core,t);
+            
+            for i = 1:x.order                
+                x.tensors{t.dim2ind(i)} = V{i};
+            end
+            x.isActiveNode(:) = true;
+
+            x = updateProperties(x);
+
+            if nargin ==3 && ~all(isActiveNode)
+                x = inactivateNodes(x,find(~isActiveNode));
+            end
+            
+
+        end
     end
     
     

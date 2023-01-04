@@ -167,7 +167,7 @@ title('Corresponding neural network')
 %% Algebraic operations
 d = 8;
 tree = DimensionTree.linear(d);
-sz = 10*ones(1,d);
+sz = randi([3,10],1,d);
 T1 = TreeBasedTensor.rand(tree, 'random',sz)
 T2 = TreeBasedTensor.rand(tree, 'random',sz)
 fprintf('ranks of T1   : %s\n', num2str(T1.ranks))
@@ -184,6 +184,14 @@ fprintf('ranks of T1*T2: %s\n', num2str(Ttimes.ranks))
 fprintf('\nNorm of tensors:\n--------------------\n')
 fprintf('norm of T1 = %d\n',T1.norm())
 fprintf('norm of T1*T2 = %d\n',Ttimes.norm())
+
+fprintf('\nSum of T1 along dimensions\n-------------------------\n')
+fprintf('dimensions of T1        : %s\n', num2str(T1.sz))
+T1sum = sum(T1,1);
+fprintf('dimensions of sum(T1,1) : %s\n', num2str(T1sum.sz))
+T1sum = sum(T1,[2,5,7]);
+fprintf('dimensions of sum(T1,[2,5,7]) : %s\n', num2str(T1sum.sz))
+fprintf('sum of all entries = %d\n',sum(T1,'all'))
 
 
 %% Changing root node of a tree based tensor
@@ -213,4 +221,24 @@ plot(T3bis)
 title(['Nodes indices with root ' num2str(num3) ,  ...
     ' from format with root ' , num2str(num2)])
 norm(T3-T3bis)/(norm(T3)+norm(T3bis))*2
+
+
+%% Activate and inactivate nodes
+d = 5;
+tree = DimensionTree.balanced(d);
+x1 = TreeBasedTensor.rand(tree,'random','random');
+figure(21)
+plot(x1)
+title('Initial tensor')
+x2 = x1.inactivateNodes([5,9]);
+fprintf('check x1 - x2 = 0 : \n%d\n',norm(x1-x2)/norm(x1))
+figure(22)
+plot(x2)
+title('Inactivate nodes [5,9]')
+x3 = x2.activateNodes([5,9]);
+fprintf('check x1 - x3 = 0 : \n%d\n',norm(x1-x3)/norm(x1))
+figure(23)
+plot(x3)
+title('Reactivate nodes [5,9]')
+
 
