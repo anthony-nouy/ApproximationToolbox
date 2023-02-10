@@ -73,6 +73,7 @@ classdef BSplinesFunctionalBasis < FunctionalBasis
             end
             Bxn = Bx(:,1:m-1-B.degree,end);
 
+
         end
 
 
@@ -97,8 +98,8 @@ classdef BSplinesFunctionalBasis < FunctionalBasis
                 dBx = zeros(length(x),length(t)-1,B.degree+1);
                 for j=1:B.degree
                     for i=1:m-1-j
-                        dBx(:,i,j+1) = 1 / (t(i+j)-t(i)) *dBxold(:,i,j) -  ...
-                            1 / (t(i+j+1)-t(i+1)) *dBxold(:,i+1,j) + ...
+                        dBx(:,i,j+1) = k / (t(i+j)-t(i)) *dBxold(:,i,j) -  ...
+                            k / (t(i+j+1)-t(i+1)) *dBxold(:,i+1,j) + ...
                             (x - t(i)) / (t(i+j)-t(i)).*dBx(:,i,j)+ ...
                             (t(i+j+1)-x) / (t(i+j+1)-t(i+1)).*dBx(:,i+1,j);
                     end
@@ -108,6 +109,7 @@ classdef BSplinesFunctionalBasis < FunctionalBasis
             dBx = dBx(:,1:m-1-B.degree,end);
 
         end
+
 
         function I = gaussIntegrationRule(h,n)
             % function I = gaussIntegrationRule(h,n) 
@@ -137,6 +139,18 @@ classdef BSplinesFunctionalBasis < FunctionalBasis
 
         end
 
+        function B = withExtraKnots(t,m)
+            % function B = withExtraKnots(m,t)
+            % Returns a BSplinesFunctionalBasis defined on the interval [t(1),t(end)] 
+            % with knots t and extra
+            % knots on the left and on the right of the interval. 
+
+            t=t(:);
+            tl = t(1)+(-m:-1)'*(t(2)-t(1));
+            tr = t(end)+(1:m)'*(t(end)-t(end-1));
+            t  = [tl; t; tr];
+            B = BSplinesFunctionalBasis(t , m);
+        end
 
     end
 
