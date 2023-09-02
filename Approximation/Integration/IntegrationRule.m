@@ -45,7 +45,8 @@ classdef IntegrationRule
             % call f(x) with an array x of size numel(I)xd, where d is the dimension
             
             fx = f(I.points);
-            y = dot(fx(:),I.weights);
+            y = I.weights(:)'*fx;
+            
         end
         
         function I = tensorize(I,d)
