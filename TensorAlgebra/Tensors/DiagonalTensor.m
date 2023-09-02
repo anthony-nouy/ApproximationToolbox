@@ -62,7 +62,6 @@ classdef DiagonalTensor < AlgebraicTensor
             % y: DiagonalTensor
             % tree: DimensionTree (linear tree by default)
             % isActiveNodes = logical of size 1-by-tree.nbNodes (~tree.isLeaf by default)
-            % x: TreeBasedTensor
             
             if nargin==1 || isempty(varargin{1})
                 x.tree=DimensionTree.linear(y.order);

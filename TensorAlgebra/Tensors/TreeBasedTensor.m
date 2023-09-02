@@ -145,16 +145,6 @@ classdef TreeBasedTensor < AlgebraicTensor
         end
         
         function x = plus(x,y)
-
-            if ~isa(y,'TreeBasedTensor')
-                error('Addition only implemented for two TreeBasedTensor')
-            end
-
-            if ~all(x.isActiveNode == y.isActiveNode)
-                x = x.activateNodes(y.activeNodes);
-                y = y.activateNodes(x.activeNodes);
-            end
-
             t = x.tree;
             
             for nod=1:t.nbNodes
@@ -696,12 +686,10 @@ classdef TreeBasedTensor < AlgebraicTensor
             % INACTIVATENODES - Inactivation of a list of nodes
             %
             % x = INACTIVATENODES(x,listnod)
-            % Inactivates the nodes whose indices are given in listnod
+            % Inactivates the nodes whose indices are given in listnode
             % x: TreeBasedTensor
             % listnod: 1-by-n double (list of nodes to inactivate)
-            if ~all(x.tree.isLeaf(listnod))
-                error('only leaf nodes can be inactivated')
-            end
+            
             t = x.tree;
             for l = max(t.level):-1:1
                 nodLvl = nodesWithLevel(t,l);
@@ -718,31 +706,6 @@ classdef TreeBasedTensor < AlgebraicTensor
             x = updateProperties(x);
         end
         
-
-
-        function x = activateNodes(x,listnod)
-            % ACTIVATENODES - Activation of a list of nodes
-            %
-            % x = ACTIVATENODES(x,listnod)
-            % Activates the nodes whose indices are given in listnod
-            % x: TreeBasedTensor
-            % listnod: 1-by-n double (list of nodes to activate)      
-
-            for l = 1:length(listnod)
-                nod = listnod(l);
-                if ~x.isActiveNode(nod)
-                    dim = find(x.tree.dim2ind==nod);
-                    s = x.sz(dim);
-                    x.tensors{nod} = FullTensor(eye(s),2,[s,s]);
-                end
-            end
-
-            x = updateProperties(x);
-            
-        end
-
-        
-
         function [xd,s] = evalDiag(x,dims)
             if nargin==1
                 dims = 1:x.order;
@@ -892,19 +855,6 @@ classdef TreeBasedTensor < AlgebraicTensor
                     I{k}=(1:x.sz(k)+1:x.sz(k)^2)';
                 end
                 z = z.subTensor(I{:});
-                N = x.ranks(x.tree.root);
-                if N>1
-                    if y.ranks(y.tree.root)~=N
-                        error('root ranks should be equal')
-                    end
-                    
-                    a = z.tensors{z.tree.root}; 
-                    
-                    I = cell(1,a.order); I(:) = {':'};
-                    I{end} = (1:N+1:N^2)';
-                    z.tensors{z.tree.root} = a.subTensor(I{:});
-                    z = updateProperties(z);
-                end
             else
                 error('Method times not implemented.')
             end
@@ -1655,7 +1605,7 @@ classdef TreeBasedTensor < AlgebraicTensor
             sv = singularValues(x);
             r = cellfun(@nnz,sv);
         end
-
+        
         function plot(x,nodesLabels)
             % PLOT - Graph of the tree with a label at each node
             %
@@ -2232,7 +2182,7 @@ classdef TreeBasedTensor < AlgebraicTensor
         end
     end
     
-    methods (Static)
+    methods (Static,Hidden)
         function isActiveNode = randomIsActiveNode(tree)
             % RANDOMISACTIVENODE - Random list of active nodes
             %
@@ -2252,7 +2202,5 @@ classdef TreeBasedTensor < AlgebraicTensor
                 isActiveNode(tree.dim2ind(p))=false;
             end
         end
-
-
     end
 end

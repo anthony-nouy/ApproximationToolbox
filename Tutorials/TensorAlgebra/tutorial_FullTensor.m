@@ -29,38 +29,11 @@ disp('t1 = FullTensor.rand([2 3 4 5]) = '); disp(t1)
 t2 = FullTensor.randn([2 3 4 4 3 2]);
 fprintf('\nt2 = FullTensor.randn([2 3 4 4 3 2]) = \n'); disp(t2)
 
+fprintf('\nNorm of t1 = %f \n',norm(t1))
 fprintf('Number of entries of t1 = %i\n',storage(t1))
 fprintf('Number of non-zero entries of t1 = %i\n\n',sparseStorage(t1))
 
-
 %% Operations on FullTensor
-
-t1 = FullTensor.rand([2 3 4 5]);
-t2 = FullTensor.randn([2 3 4 5]);
-
-% Frobenius norm
-fprintf('\nFrobenius norm of a tensor = %f \n',norm(t1))
-
-% Multiplication and division by a scalar
-fprintf('Multiplication by a scalar\n')
-disp(t1 * 2)
-fprintf('Division by a scalar\n')
-disp(t1 / 2)
-
-% Sum and difference of two tensors 
-fprintf('Sum of two tensors\n')
-disp(t1 + t2)
-fprintf('Difference between two tensors\n')
-disp(t1 - t2)
-
-% Hadamard (component-wise) product of two tensors
-fprintf('Hadamard (component-wise) product of two tensors tensors\n')
-disp(t1 .* t2)
-
-%% More operations on FullTensor
-
-t1 = FullTensor.rand([2 3 4 5]);
-t2 = FullTensor.randn([2 3 4 4 3 2]);
 
 % Contraction of the tensors t1 and t2, in the dimensions 1 and 3, and 6 and 4, respectively
 % The resulting tensor t3 is of order t3.order = 4+6-4 = 6, and of dimensions t3.sz = [3 5 2 3 4 3]
@@ -84,12 +57,6 @@ fprintf('\nt5 = outerProductEvalDiag(t1,t2,3,4) = \n'); disp(t5)
 % t6(i1,k,l,i4,j1,j2,j3,j6) = t1(i1,k,l,i4)t2(j1,j2,j3,l,k,j6)
 t6 = outerProductEvalDiag(t1,t2,[2,3],[5,4],true);
 fprintf('\nt6 = outerProductEvalDiag(t1,t2,[2,3],[5,4],true) = \n'); disp(t6)
-
-% Contraction by a matrix along a specified dimension
-mu = 2;
-A = rand(3,size(t1,mu));
-t7 = timesMatrix(t1,A,2);
-
 
 %% Orthogonalization of a FullTensor
 

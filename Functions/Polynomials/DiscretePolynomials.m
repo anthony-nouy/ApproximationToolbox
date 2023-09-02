@@ -26,24 +26,19 @@ classdef DiscretePolynomials < OrthonormalPolynomials
     end
 
     methods
-        function p = DiscretePolynomials(x,n)
-            % p = DiscretePolynomials(x,n)
+        function p = DiscretePolynomials(x,varargin)
+            % p = DiscretePolynomials(x,varargin)
             % Polynomials orthonormal with respect to a discrete measure
             %
             % x: DiscreteRandomVariable or DiscreteMeasure
             % p: DiscretePolynomials
-            % n: maximum degree of polynomials 
-            %    (by default, the number of values of x minus 1)
 
             if nargin==0 || (~isa(x,'DiscreteRandomVariable') && ~isa(x,'DiscreteMeasure'))
                 error('Must specify a DiscreteRandomVariable or DiscreteMeasure')
             end
-            if nargin==1
-                n=length(x.values)-1;
-            end
 
             p.measure = x;
-            [p.recurr,p.norms] = DiscretePolynomials.precomputeRecurrenceMonic(x,n);
+            [p.recurr,p.norms] = DiscretePolynomials.precomputeRecurrenceMonic(x,length(x.values)-1);
         end
 
         function [recurr,norms] = recurrenceMonic(p,n)
@@ -100,42 +95,62 @@ classdef DiscretePolynomials < OrthonormalPolynomials
             cond = 1;
 
             G = integrationRule(r);
-            x = G.points;
-            weights = G.weights(:);
 
-            norm2(1) = sum(weights);
-            a(1) = dot(weights,x)/norm2(1);
+            norm2(1) = dotProduct(@(x) x.^0, @(x) x.^0,r);
+            a(1) = dotProduct(@(x) x.^0, @(x) x,r)/norm2(1);
             b(1) = 0;
-            pn = ones(length(x),1);
-            pnp1 = (x-a(1)).*pn;
-            
+            pn = @(x) 1;
+            pnp1 = @(x) (x-a(1)).*pn(x);
+
             while cond && i <= n
                 i = i+1;
                 pnm1 = pn;
                 pn = pnp1;
 
-                norm2(i) = dot(weights,pn.^2);
-                a(i) = dot(weights,pn.^2.*x)/norm2(i);
+                norm2(i) = dotProduct(pn, pn,r);
+                a(i) = dotProduct(pn, @(x) x.*pn(x),r)/norm2(i);
                 b(i) = norm2(i)/norm2(i-1);
 
-                pnp1 = (x-a(i)).*pn - b(i)*pnm1;
-                d1 = abs(dot(pnp1.*pn, weights));
-                d2 = abs(dot(pnp1.*pnm1, weights));
-                tol = 1e-5;
-
-                if d1 < tol && d2 < tol
-                    cond = 1;
-                else
-                    cond = 0;
-                end
+                pnp1 = @(x) (x-a(i)).*pn(x) - b(i)*pnm1(x);
+                cond = isOrth(pnp1,pn,pnm1,r); % Condition of orthogonality
             end
             if cond==0 && i~=n+1
                 warning('problem of conditioning - requested number of recurrence terms not reached')
             end
-
             recurr = [a(1:i) ; b(1:i)]; % Recurrence coefficients
             norms = sqrt(norm2(1:i)); % Polynomial norms
 
+            function b = isOrth(pnp1,pn,pnm1,r)
+                % function b = isOrth(pnp1,pn,pnm1,r)
+                % Function that determines if the polynomial pnp1 is orthogonal to the polynomials pn and pnm1, according to the RandomVariable r
+                % pnp1: anonymous function handle
+                % pn: anonymous function handle
+                % pnm1: anonymous function handle
+                % r: RandomVariable
+                % b: boolean
+
+                tol = 1e-5; % Tolerance for the inner product to be considered as 0
+
+                d1 = abs(dotProduct(pnp1, pn, r));
+                d2 = abs(dotProduct(pnp1, pnm1, r));
+
+                if d1 < tol && d2 < tol
+                    b = 1;
+                else
+                    b = 0;
+                end
+            end
+
+            function d = dotProduct(p1,p2,r)
+                % d = dotProduct(p1,p2,r)
+                % Function that computes the inner product between two polynomials p1 and p2, according to the RandomVariable r
+                % p1: anonymous function handle
+                % p2: anonymous function handle
+                % r: RandomVariable
+                % d: 1-by-1 double
+                G = integrationRule(r);
+                d = G.integrate(@(x) p1(x).*p2(x));
+            end
 
         end
 

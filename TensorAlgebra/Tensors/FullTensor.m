@@ -146,16 +146,6 @@ classdef FullTensor < AlgebraicTensor
             x.data = x.data.^y;
         end
         
-        function x = mrdivide(x,c)
-            
-            if isa(c,'double') && numel(c)==1
-                x.data = x.data/c;
-            else
-                error('Method mrdivide not implemented.')
-            end
-
-        end
-
         function z = dot(x,y)
             z = x.data(:)'*y.data(:);
         end
@@ -217,34 +207,20 @@ classdef FullTensor < AlgebraicTensor
             %
             % y = sum(x,i)
             % x: FullTensor of order d
-            % i: array of integers or 'all'
+            % i: array of integers
             % y: FullTensor of order d
             % Use squeeze to remove dimensions
-
-            i=sort(i);
-            for k=length(i):-1:1
-                x.data = sum(x.data,i(k));
+            
+            if x.order==1
+                x = sum(x.data);
+            else
+                i=sort(i);
+                for k=length(i):-1:1
+                    x.data = sum(x.data,i(k));
+                end
+                x.sz(i) = 1;
+                x = FullTensor(x.data,x.order,x.sz);
             end
-            x.sz(i) = 1;
-            x = FullTensor(x.data,x.order,x.sz);
-
-%            if x.order==1
-%                x = sum(x.data);
-%            elseif isa(i,'char') && strcmpi(i,'all')
-%                x = sum(x.data,'all');
-%            else
-                %i=sort(i);
-                %for k=length(i):-1:1
-                %    x.data = sum(x.data,i(k));
-                %end
-%                x.data = sum(x.data,i);
-%                x.sz(i) = [];
-%                if isempty(x.sz)
-%                    x = x.data;
-%                else
-%                    x = FullTensor(x.data,x.order-length(i),x.sz);
-%                end
-%            end
         end
         
         function z = kron(x,y)
