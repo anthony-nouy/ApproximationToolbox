@@ -194,6 +194,26 @@ classdef (Abstract) AlgebraicTensor
             % s = squeeze(x,dims)
             % Removes dimensions dims
         end
+
+        function y = sum(x,i)
+            % Computes the sum of a tensor along given dimensions
+            %
+            % y = sum(x,i)
+            % x: AlgebraicTensor of order d
+            % i: array of integers or 'all'
+            % y: AlgebraicTensor of order d
+            % Use squeeze to remove dimensions            
+
+            if isa(i,'char') && strcmpi(i,'all')
+                i = 1:x.order;
+            end
+            a = cell(1,length(i));
+            for k=1:length(a)
+                a{k} = ones(x.sz(i(k)),1);
+            end
+            y = timesVector(x,a,i);
+
+        end
     end
     
     methods (Abstract)

@@ -91,16 +91,54 @@ classdef RandomVariable < ProbabilityMeasure
             end
             g = [min(X);g;max(X)];
         end
-        
-        function Xn = discretize(X,n)
-            % Xn = discretize(X,n)
-            % Returns a discrete random variable Xn taking n possible values x1,...xn, these values being the quantiles of X of probability 1/(2n) + i/n, i=0...n-1 and such that P(Xn \le xn) = 1/n
-            % X: RandomVariable
-            % Xn: DiscreteRandomVariable
+
+        function Y = discretizeSupport(X,n,s)
+            % Discretize a random variable X and returns a
+            % discrete randomVariable
+            % 
+            % Y = discretizeSupport(X,x)
+            % For a n-by-1 array x, returns a discrete random
+            % variable Y taking n possible values x(1),...x(n)
+            % and 
+            % P(Y = x(i)) = P(v(i) < X <= v(i+1))  
+            % with v = (-inf , (x(1)+x(2))/2 , ..., (x(n-1)+x(n))/2, inf)
+            %
+            % Y = discretizeSupport(X,n,[a,b])
+            % For an integer n, returns a discrete random
+            % variable Y taking n possible values x(1),...x(n)
+            % with x(i) = a + (i+1/2)/(n)*(b-a)
+            % and P(Y = x(i)) defined as above
+            % By default, [a,b] is the truncated support of X
+
+            if length(n)==1
+                if nargin<3
+                    s=truncatedSupport(X);                    
+                end
+                u = linspace(1/2/n,1-1/2/n,n)';
+                x = s(1) + u*(s(2)-s(1));
+            else
+                x = n;
+            end
+            v = [-inf;(x(2:end)+x(1:end-1))/2;inf];
+            p = X.cdf(v(2:end))-X.cdf(v(1:end-1));       
+            p = max(p,0);
+            Y = DiscreteRandomVariable(x,p);
+
+        end
+
+        function Y = discretize(X,n)
+            % Discretize a random variable X and returns a
+            % discrete randomVariable
+            % 
+            % Y = discretize(X,n)
+            % For an integer n, returns a discrete random
+            % variable Y taking n possible values x(1),...x(n), 
+            % these values being the quantiles of X of probability 1/(2n) + i/n, i=0...n-1, 
+            % and P(Y = x(i)) = 1/n                  
             
             u = linspace(1/2/n,1-1/2/n,n)';
             x = icdf(X,u);
-            Xn = DiscreteRandomVariable(x);
+            Y = DiscreteRandomVariable(x);
         end
         
         function ok = eq(r1,r2)

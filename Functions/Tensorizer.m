@@ -24,14 +24,13 @@ classdef Tensorizer
         d
         dim
         X
-        Y
         orderingType = 1;
     end
     
     
     methods
         
-        function t = Tensorizer(b,d,dim,X,Y)
+        function t = Tensorizer(b,d,dim,X)
             % t = Tensorizer(b,d)
             % Tensorizer : defines a map t from [0,1] to
             % {0,...,b-1}^d x [0,1]^dim
@@ -42,24 +41,22 @@ classdef Tensorizer
             %
             % t = Tensorizer(b,d,dim)
             % defines a map t from [0,1]^dim to 
-            % - {{0,...,b-1}^d}^dim x [0,1]^dim
-            % if property orderingType = 1
-            % - {{0,...,b-1}^dim}^d x [0,1]^dim
-            % if property orderingType = 2
-            % - or {{0,...,b-1}^d x [0,1]}^dim 
-            % if property orderingType = 3   
-            %
-            % t = Tensorizer(b,d,dim,X,Y)
-            % Provides a measure X for the input variable x and a measure Y for 
-            % the local variable y
-            % X : RandomVariable if dim=1 or RandomVector (by default a Lebesgue measure over [0,1]^dim)
-            % Y : RandomVariable if dim=1 or RandomVector (by default a Lebesgue measure over [0,1]^dim)
+            % - {{0,...,b-1}^d}^dim x [0,1]^dim if property orderingType = 1
+            % - {{0,...,b-1}^dim}^d x [0,1]^dim if property orderingType = 2
+            % - or {{0,...,b-1}^d x [0,1]}^dim  if property orderingType = 3   
+            % 
+            % t = Tensorizer(b,d,dim,X)
+            % Provides a measure X for the input variable x 
+            % X : RandomVariable if dim=1 or RandomVector (by default a Uniform measure over [0,1]^dim)
             
             
-            
+     
             
             if nargin<3
                 dim=1;
+            end
+            if d==0
+                warning('Tensorizer should not be used with d=0')
             end
             t.dim = dim;
             t.b=b;
@@ -72,17 +69,14 @@ classdef Tensorizer
             else
                 t.X = RandomVector(UniformRandomVariable(0,1),t.dim);
             end
-            if nargin==5
-                if isa(Y,'RandomVariable')
-                    Y = RandomVector(Y,t.dim);
-                end
-                t.Y = Y;
-            else
-                t.Y = RandomVector(UniformRandomVariable(0,1),t.dim);
-            end
         end
         
         function [y,i] = map(t,x)
+            % function [y,i] = map(t,x)
+            % t: Tensorizer
+            % x : n-by-dim array
+            % y : n-by-dim array
+            % i : n-by-(dxdim) array
             y = cell(1,t.dim);
             i = cell(1,t.dim);
             for k=1:t.dim
@@ -92,9 +86,6 @@ classdef Tensorizer
                     uk = x(:,k);
                 end
                 y{k} = Tensorizer.u2z(uk,t.b,t.d);
-                if ~isempty(t.Y)
-                    y{k}(:,end) = t.Y.randomVariables{k}.icdf(y{k}(:,end));
-                end
                 i{k} = y{k}(:,1:end-1);
                 y{k} = y{k}(:,end);
             end
@@ -126,8 +117,13 @@ classdef Tensorizer
             
             
         end
-        
+
         function x = inverseMap(t,z)
+            % function x = inverseMap(t,z)
+            % t: Tensorizer
+            % z : n-by-((d+1)xdim) array
+            % x : n-by-dim array
+
             u = cell(1,t.dim);
             for k=1:t.dim
                 switch t.orderingType
@@ -140,9 +136,6 @@ classdef Tensorizer
                     case 3
                         ik = z(:,(1:t.d)+(k-1)*(t.d+1));
                         zk = z(:,k*(t.d+1));
-                end
-                if ~isempty(t.Y)
-                    zk = t.Y.randomVariables{k}.cdf(zk);
                 end
                 u{k} = Tensorizer.z2u([ik,zk],t.b);
                 if ~isempty(t.X)
@@ -189,22 +182,12 @@ classdef Tensorizer
             %end
             
             if isa(h,'double')
-                if isempty(t.Y)
-                    t.Y = UniformRandomVariable(0,1);
-                    h = PolynomialFunctionalBasis(orthonormalPolynomials(t.Y),0:h);    
-                else
-                    h = cellfun(@(mu) PolynomialFunctionalBasis(orthonormalPolynomials(mu),0:h),t.Y.randomVariables,'uniformoutput',false);
-                    h = FunctionalBases(h);
-                end
+                h = PolynomialFunctionalBasis(orthonormalPolynomials(LebesgueMeasure(0,1)),0:h);             
             end
                         
             if isa(h,'function_handle')
                 h = UserDefinedFunctionalBasis({h});
-                if ~isempty(t.Y)
-                    h.measure = t.Y.randomVariables{1};
-                else
-                    h.measure = UniformRandomVariable(0,1);
-                end
+                h.measure = LebesgueMeasure(0,1);
             end
             
             if isa(h,'FunctionalBasis')
