@@ -17,7 +17,7 @@
 % You should have received a copy of the GNU Lesser General Public License
 % along with ApproximationToolbox.  If not, see <https://www.gnu.org/licenses/>.
 
-classdef CellValuedUserDefinedFunction < UserDefinedFunction.
+classdef CellValuedUserDefinedFunction < UserDefinedFunction
     
     methods
         function f = CellValuedUserDefinedFunction(fun,dim,sz)

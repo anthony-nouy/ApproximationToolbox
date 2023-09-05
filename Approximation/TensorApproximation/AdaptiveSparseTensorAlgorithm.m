@@ -129,7 +129,7 @@ classdef AdaptiveSparseTensorAlgorithm
             
             if s.display || s.displayIterations
                 fprintf('\n+-----------+------------+------------+\n');
-                fprintf('| Dim Basis | Nb Samples |  CV error  |\n');
+                fprintf('| Dim basis | Nb samples |  CV error  |\n');
                 fprintf('+-----------+------------+------------+\n');
             end
             f = [];
@@ -663,7 +663,7 @@ classdef AdaptiveSparseTensorAlgorithm
                 ls.basis = [];
                 parfor i=1:m
                     sz = size(y{i});
-                    lsloc = ls
+                    lsloc = ls;
                     lsloc.trainingData = {[], reshape(y{i},[sz(1) prod(sz(2:end))])};
                     lsloc.basisEval = A{i};
                     [a,output] = lsloc.solve();
