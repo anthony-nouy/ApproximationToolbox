@@ -93,11 +93,10 @@ classdef ProbabilityMeasureWithRadonDerivative < ProbabilityMeasure
             s = truncatedSupport(nu.mu);
         end
         
-        function r = random(nu,n,x0,varargin)
+        function r = random(nu,n,varargin)
             % r = random(nu,n,x0)
             % nu: ProbabilityMeasureWithRadonDerivative
             % n: integer
-            % x0 : initial point for slice sampling (optional)
             % r: n-by-1 double
             
             if nargin > 2
@@ -110,24 +109,34 @@ classdef ProbabilityMeasureWithRadonDerivative < ProbabilityMeasure
                 error('n must be an integer.')
             end
             if nargin==3
-                r = slicesample(x0,n,'pdf', @(x)abs(pdf(nu,x)),varargin{:});
+                % r = slicesample(x0,n,'pdf', @(x)abs(pdf(nu,x)),varargin{:});
+                suppmeasure = [-12,12];
+                muD = discretizeSupport(nu.mu,2000,suppmeasure);
+                muD.probabilities = muD.probabilities.*nu.h(muD.values);
+                r = random(muD,n);
             else
                 ok = false;
                 while ~ok
                     try         
-                        r = slicesample(random(nu.mu),n,'pdf', @(x)abs(pdf(nu,x)),varargin{:});
+                        % r = slicesample(random(nu.mu),n,'pdf', @(x)abs(pdf(nu,x)),varargin{:});
+                        suppmeasure = [-12,12];
+                        muD = discretizeSupport(nu.mu,2000,suppmeasure);
+                        muD.probabilities = muD.probabilities.*nu.h(muD.values);
+                        r = random(muD,n);
                         ok = true;
                     end
                 end
             end
-                    
-            
         end
         
         function marg = marginal(nu, ind)
             hmarg = conditionalExpectation(nu.h,ind,nu.mu);
             if isa(nu.mu,'ProductMeasure')
-                mumarg = ProductMeasure(nu.mu.measures(ind));
+                if numel(ind) == 1
+                   mumarg =  nu.mu.measures{ind};
+                else  
+                   mumarg = ProductMeasure(nu.mu.measures(ind));
+                end
             elseif isa(nu.mu,'RandomVector') && isa(nu.mu.copula,'IndependentCopula')
                 mumarg = RandomVector(nu.mu.randomVariables(ind));
             else
@@ -143,25 +152,38 @@ classdef ProbabilityMeasureWithRadonDerivative < ProbabilityMeasure
         function xs = randomSequential(p,n)
             % p is a ProbabilityMeasureWithRadonDerivative or a cell containing ProbabilityMeasureWithRadonDerivative
             
-            dim = ndims(p);
-            marginals = cell(1,dim);
-            xs = zeros(n,dim);
-            marginals{dim} = p;
-            for i = (dim-1):-1:1
+            nbdim = ndims(p);
+            marginals = cell(1,nbdim);
+            marg = cell(1,nbdim);
+            xs = zeros(n,nbdim);
+            marginals{nbdim} = p;
+            
+            for i = (nbdim-1):-1:1
                 marginals{i} = marginal(marginals{i+1},1:i);
             end
+            if nbdim > 1
+                for i = 1:nbdim
+                    marg{i} = marginal(p,i);
+                end
+            else 
+                marg{nbdim} = p;
+            end
+            
             
             for k=1:n
-                mu = @(y)abs(marginals{1}.h(y).*pdf(marginals{1}.mu,y));
-                xs(k,1) = slicesample(0, 1, 'pdf',mu);
+                muD = discretizeSupport(marg{1}.mu,2000,truncatedSupport(marg{1}.mu));
+                muD.probabilities = muD.probabilities.*abs(marg{1}.h(muD.values));
+                xs(k,1) = random(muD);
                 x_sample = [];
-                for q = 2:dim
+                for q = 2:nbdim
                     x_sample = [x_sample, xs(k,q-1)];
-                    f = eval(marginals{q}.h, x_sample,1:(q-1));
-                    mu_num = @(y)abs(eval(f,y)*pdf(marginals{q}.mu,[x_sample,y]));
-                    mu_den = abs(eval(marginals{q-1}.h, x_sample,1:(q-1))*pdf(marginals{q-1}.mu,x_sample));
-                    mu = @(y)mu_num(y)/mu_den;
-                    xs(k,q) = slicesample(0,1,'pdf',mu);
+                    muD = discretizeSupport(marg{q}.mu,2000,truncatedSupport(marg{q}.mu));
+                    [N, M] = size(muD.values);
+                    mu_num = pdf(marginals{q},[repmat(x_sample, N, 1), muD.values]);
+                    mu_den = pdf(marginals{q-1}, x_sample);
+                    mu_ratio = abs(mu_num/mu_den);
+                    muD.probabilities = muD.probabilities.*mu_ratio;
+                    xs(k,q) = random(muD);
                 end
             end
         end
