@@ -26,30 +26,36 @@ classdef RandomFunction
     end
     
     methods
-        function Y = RandomFunction(f,sz)
+        function Y = RandomFunction(f, sz)
             % Y = RandomFunction(f,sz)
             %
             % f: function such that f() generates a sample of a random array of size sz
             % sz: array
             
-            Y.sz = sz;
             Y.f = f;
+            Y.sz = sz;
         end
         
         function sz = size(Y)
             sz = Y.sz;
         end
         
-        function y = random(Y,N)
+        function [y, lm] = random(Y,N)
             % y = random(Y,N)
             
             if nargin==1 || N==1
-                y = Y.f();
-                y = reshape(y,[1,size(Y)]);
+                [y, lm] = Y.f();
             else
-                y = zeros([N,Y.sz]);
+                ys = cell(1,N);
+                l = zeros(1,N);
                 for k=1:N
-                    y(k,:) = Y.f();
+                    ys{k} = Y.f();
+                    l(k) = length(ys{k});
+                end
+                lm = max(l);
+                y = zeros(N,lm);
+                for k = 1:N
+                    y(k,1:length(ys{k}))= ys{k};
                 end
             end
         end

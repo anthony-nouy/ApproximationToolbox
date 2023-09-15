@@ -355,8 +355,9 @@ classdef FunctionalBasisArray < Function
             % dimension of the basis
             
             [fx,x] = random(f.basis,varargin{:});
-            y = fx*reshape(f.data,cardinal(f.basis),prod(f.sz));
-            y = reshape(y,[size(fx,1), f.sz]);
+            y = cell2mat(cellfun(@(x) reshape(x,1,numel(fx{1})),fx,'UniformOutput',false)).';
+            y = y*reshape(f.data,cardinal(f.basis),prod(f.sz));
+            y = reshape(y,size(fx{1}));
         end
         
         function rv = getRandomVector(f)
@@ -375,7 +376,6 @@ classdef FunctionalBasisArray < Function
         function s = sparseStorage(f)
             s = nnz(f.data);            
         end
-        
         
         function g = projection(f,basis,indices)
             % g = projection(f,basis,indices)
@@ -433,8 +433,9 @@ classdef FunctionalBasisArray < Function
             s = SubFunctionalBasis(p.basis,p.data);
         end
         
-        function s = getCoefficients(f)
-            s = reshape(f.data,[cardinal(f.basis),f.sz]);
+        function [s, dimb] = getCoefficients(f)
+            dimb = cardinal(f.basis);
+            s = reshape(f.data,[dimb,f.sz]);
         end
     end
 end
