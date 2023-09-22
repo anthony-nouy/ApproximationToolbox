@@ -22,6 +22,7 @@ classdef FunctionalTensorPCALeastSquares < FunctionalTensorPCA
     properties
         optimalSampling = false
         optimalSamplingBoosted = false
+        samplingMethod = 1 % for 'discrete or 0 for slice
         regressionTensorizedSampling = false
         regressionSamplingFactor = 1
         tol = 1e-10;
@@ -98,12 +99,12 @@ classdef FunctionalTensorPCALeastSquares < FunctionalTensorPCA
                 if FTPCA.optimalSamplingBoosted
                     % Resampling and conditionning
                     M = 10;
-                    [gridalpha, dist] = conditionnedResampling(basis, delta, epsilon, M);
+                    [gridalpha, dist] = conditionnedResampling(basis, delta, epsilon, M, FTPCA.samplingMethod);
                     % Greedy removal of samples
                     [gridalpha, deltanew] = greedySubsamplingSmart(gridalpha, basis, delta);
                 else
                     M = 10;
-                    [gridalpha, dist] = conditionnedResampling(basis, delta, epsilon, M);
+                    [gridalpha, dist] = conditionnedResampling(basis, delta, epsilon, M, FTPCA.samplingMethod);
                      if dist > delta
                          warning('Bad sampling')
                      end
