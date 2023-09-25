@@ -6,7 +6,7 @@ nbsamples = abs(ceil(nb));
 nu = optimalSamplingMeasure(basis);
 % gridalpha = zeros(1,nbsamples);
 % Resampling
-parfor kk=1:M
+for kk=1:M
     gridalpha = randomSequential(nu, nbsamples, type);
     ABLS = basis.eval(gridalpha);
     WBLS = diag(sqrt(m*1./sum(ABLS.^2,2)));
@@ -30,7 +30,7 @@ while dist > delta && nbiter < 10
     samplesC{nbiter} = gridalpha;
 end
 if nbiter == 10
-    warning('Stability condition is not verified')
+    % warning('Stability condition is not verified')
     [mini, ind]= min(storeC);
     gridalpha = samplesC{ind};
 end
