@@ -19,7 +19,78 @@
 
 clc, clearvars, close all
 
-%%
+%% Piecewise polynomial basis with given points and degrees
+
+points = [0,.2,1];
+p = [1,2];
+H = PiecewisePolynomialFunctionalBasis(points, p);
+xplot = linspace(0,1,1000)';
+figure(1)
+plot(xplot, H.eval(xplot))
+
+figure(2)
+plot(xplot, H.evalDerivative(1,xplot))
+
+%% Piecewise polynomial basis with constant degree and mesh size
+h = 2^(-2);
+p = 1;
+H = PiecewisePolynomialFunctionalBasis.hp(0, 1, h, p);
+xplot = linspace(0,1,1000)';
+figure(1)
+clf
+plot(xplot, H.eval(xplot))
+
+%% Piecewise polynomial basis with constant degree and given number of elements
+n = 2;
+p = 4;
+H = PiecewisePolynomialFunctionalBasis.np(0, 1, n, p);
+xplot = linspace(0,1,1000)';
+figure(1)
+clf
+plot(xplot, H.eval(xplot))
+
+
+%% Singularity adapted Piecewise polynomial basis
+h = 2^-2;
+H = PiecewisePolynomialFunctionalBasis.singularityhpAdapted(0, 1, [0], h);
+xplot = linspace(0,1,1000)';
+figure(1)
+clf
+plot(xplot, H.eval(xplot))
+
+%% Interpolation of a function 
+
+H = PiecewisePolynomialFunctionalBasis.np(0, 1, 4, 3);
+f = UserDefinedFunction('cos(4*pi*x1)',1)    ;
+g = H.interpolationPoints();
+If = H.interpolate(f,g);
+xplot = linspace(0,1,1000)';
+figure(1)
+clf
+plot(xplot, If.eval(xplot))
+hold on
+plot(xplot, f.eval(xplot));
+legend('If','f')
+
+X = UniformRandomVariable(0, 1);
+ERR_L2 = f.testError(If, 1000, X);
+fprintf('Mean squared error = %2.5e\n', ERR_L2)
+
+g = H.magicPoints();
+If = H.interpolate(f,g);
+ERR_L2 = f.testError(If, 1000, X);
+fprintf('Mean squared error (magic points) = %2.5e\n', ERR_L2)
+
+%% Quadrature
+H = PiecewisePolynomialFunctionalBasis.np(0, 1, 4, 2);
+f = UserDefinedFunction('exp(x1)',1)    ;
+g = H.gaussIntegrationRule(10);
+I = g.integrate(f);
+Iex = exp(1)-1;
+fprintf('Integration error = %2.5e\n', abs(Iex-I)/abs(Iex))
+
+
+%% Approximation of a bivariate function with singularity
 d=2;
 X = RandomVector(UniformRandomVariable(0,1),2);
 f = vectorize('1/(x1+x2)^.25');

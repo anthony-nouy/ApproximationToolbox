@@ -24,6 +24,10 @@ classdef ShiftedOrthonormalPolynomials < UnivariatePolynomials
         b % shift
         s % scaling
     end
+
+    properties (Hidden)
+        factor = 1 % factor  
+    end
     
     methods
         
@@ -36,6 +40,8 @@ classdef ShiftedOrthonormalPolynomials < UnivariatePolynomials
             sp.p = p;
             sp.s = s;
             sp.b = b;
+            sp.factor = sqrt(mass(p.measure)/mass(sp.measure));     
+
         end
         
         function ok = isOrthonormal(p)
@@ -69,7 +75,7 @@ classdef ShiftedOrthonormalPolynomials < UnivariatePolynomials
             if ~strcmp(class(p),class(q))
                 ok = 0;
             else
-                ok = (p.s==q.s) && (p.b==q.b) && (p.p == q.p);
+                ok = (p.s==q.s) && (p.b==q.b) && (p.p == q.p) ;
             end
         end
         
@@ -99,7 +105,9 @@ classdef ShiftedOrthonormalPolynomials < UnivariatePolynomials
             % p: ShiftedOrthonormalPolynomials
             % list: 1-by-n or n-by-1 double
             % m: n-by-1 double
-            m = mean(p.p,list,varargin{:}) ;
+            
+            m = mean(p.p,list,varargin{:})*p.factor ;
+            m = m * p.factor;
         end
         
         function m = moment(p,list,varargin)
@@ -109,10 +117,11 @@ classdef ShiftedOrthonormalPolynomials < UnivariatePolynomials
             % rule. The degrees of the polynomials are stored in the rows
             % of list, hence every row of list is related to one moment.
             % p: ShiftedOrthonormalPolynomials
-            % list: n-by-m double
+            % list: n-by-k double
             % m: n-by-1 double
-            
+            dd
             if nargin == 3
+                warning('to be checked')
                 if varargin{1} == p.measure
                     varargin = {};
                 else
@@ -120,6 +129,7 @@ classdef ShiftedOrthonormalPolynomials < UnivariatePolynomials
                 end
             end
             m = moment(p.p,list,varargin{:});
+            m = m*p.factor^size(list,2);
         end
         
         function plot(p,d,varargin)
@@ -159,6 +169,7 @@ classdef ShiftedOrthonormalPolynomials < UnivariatePolynomials
             
             x = (x-P.b)/P.s;
             px = polyval(P.p,list,x);
+            px = px*P.factor;
         end
         
         function px = dPolyval(P,list,x)
@@ -171,7 +182,7 @@ classdef ShiftedOrthonormalPolynomials < UnivariatePolynomials
             % px: n-by-d double
             
             x = (x-P.b)/P.s;
-            px = dPolyval(P.p,list,x)/P.s;
+            px = dPolyval(P.p,list,x)*(P.factor/P.s);
             
         end
         
@@ -186,7 +197,7 @@ classdef ShiftedOrthonormalPolynomials < UnivariatePolynomials
             % px: N-by-d double
             
             x = (x-P.b)/P.s;
-            px = dnPolyval(P.p,n,list,x)/(P.s^n);
+            px = dnPolyval(P.p,n,list,x)*(P.factor/P.s^(n));
             
         end
         

@@ -144,29 +144,39 @@ classdef PolynomialFunctionalBasis < FunctionalBasis
             y = dnPolyval(h.basis,k,h.indices,x);
         end
         
-        function M = gramMatrix(f,rv)
-            % M = gramMatrix(f,rv)
+        function M = gramMatrix(f,mu)
+            % M = gramMatrix(f,mu)
             % Computes the Gram matrix of the basis f. The Gram
             % matrix is the matrix of the dot products between each
             % possible couple of basis functions of f. The dot product in
-            % the dimension i is computed according to Measure rv
+            % the dimension i is computed according to Measure mu
             % if provided, or according to the Measure in f if not.
             % f: PolynomialFunctionalBasis
-            % rv: Measure (optional)
+            % mu: Measure (optional)
             % M: P-by-P double, where P is the number of multi-indices
             
             if nargin < 2
                 if isempty(f.measure)
-                    error('Must specify a Measure')
+                    mu = f.basis.measure;
                 else
-                    rv = f.measure;
+                    mu = f.measure;
                 end
+            end      
+
+            if (mu == f.basis.measure) && f.basis.isOrthonormal
+                M = speye(f.cardinal());
+                return
             end
-            
+
+            if isa(mu,'DiscreteMeasure') || isa(mu,'DiscreteRandomVariable')
+                M = gramMatrix@FunctionalBasis(f,mu);
+                return
+            end
+
             if ismethod(f.basis,'moment')
                 ind = f.indices;
                 list = [repmat(ind',length(ind),1), reshape(repmat(ind,length(ind),1),numel(ind)^2,1)];
-                M = reshape(moment(f.basis,list,rv),[length(ind) length(ind)]);
+                M = reshape(moment(f.basis,list,mu),[length(ind) length(ind)]);
             else
                 error('Not implemented');
             end
@@ -223,12 +233,12 @@ classdef PolynomialFunctionalBasis < FunctionalBasis
         
         function ch = christoffel(f,x)
             % ch = christoffel(f)
-            % Returns the Christoffel function associated with a functional basis
+            % Returns the inverse Christoffel function associated with a functional basis
             % f: PolynomialFunctionalBasis
             % ch: FunctionalBasisArray`
             %
             % ch = christoffel(f,x)
-            % Evaluates the Christoffel function at x
+            % Evaluates the inverse Christoffel function at x
             % f: FunctionalBasis
             % x: n-by-1 array
             % ch: n-by-1 array
@@ -246,13 +256,7 @@ classdef PolynomialFunctionalBasis < FunctionalBasis
                 Q = gaussIntegrationRule(f.measure,m+1);
                 ch = b.projection(fun,Q);
             else
-                if f.isOrthonormal
-                    ch = sum(abs(f.eval(x)).^2,2);
-                else
-                    G = gramMatrix(f);
-                    fEval = f.eval(x);
-                    ch = sum((fEval / G) .* fEval,2);
-                end
+                ch = christoffel@FunctionalBasis(f,x);
             end
         end
         

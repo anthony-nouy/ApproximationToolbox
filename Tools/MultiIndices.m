@@ -83,6 +83,13 @@ classdef MultiIndices
             warning('numel is replaced by cardinal and will be removed in a future release.')
             n = cardinal(I);
         end
+
+        function I = product(I,J)
+            if ~isa(J,'MultiIndices')
+                error('Must provide a MultiIndices.')
+            end
+            I = MultiIndices.productSet({I.array,J.array});
+        end
         
         function n = cardinal(I)
             n = size(I.array,1);
@@ -270,7 +277,7 @@ classdef MultiIndices
                 [ok,rep] = ismember(Ip.array,I.array,'rows');
                 if ~all(ok)
                     r = false;
-                    return
+                    return 
                 end
                 indtest = setdiff(indtest,rep);
             end

@@ -21,6 +21,7 @@ classdef UserDefinedFunction < Function
     
     properties
         fun
+        parallel = false
     end
     
     methods
@@ -35,7 +36,7 @@ classdef UserDefinedFunction < Function
             % if set to true, fun(x) with x of size N-by-dim returns an array
             % of size N-by-sz
             
-            f.evaluationAtMultiplePoints = false;
+            f.evaluationAtMultiplePoints = true;
             f.dim = dim;
             if nargin==3
                 f.outputSize = sz;
@@ -72,10 +73,18 @@ classdef UserDefinedFunction < Function
                 y = f(x);
             else
                 y = zeros(n,prod(h.outputSize));
-                parfor i=1:n
-                    fxi = f(x(i,:));
-                    y(i,:) = fxi(:);
+                if h.parallel
+                    parfor i=1:n
+                        fxi = f(x(i,:));
+                        y(i,:) = fxi(:);
+                    end
+                else
+                    for i=1:n
+                        fxi = f(x(i,:));
+                        y(i,:) = fxi(:);
+                    end
                 end
+
             end
             y = reshape(y,[n,h.outputSize]);
         end

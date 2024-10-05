@@ -23,8 +23,6 @@ title('BSplines second derivative')
 
 
 
-
-
 %% Interpolation with Bsplines
 
 % BSplines basis

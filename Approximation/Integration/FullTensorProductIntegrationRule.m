@@ -26,7 +26,7 @@ classdef FullTensorProductIntegrationRule < IntegrationRule
             % points: cell of length dim or FullTensorGrid containing 1D points
             % weights: cell of length dim containing 1D weights
             
-            G@IntegrationRule(points,weights)
+            G@IntegrationRule([],[])
             if isa(points,'cell')
                 points = FullTensorGrid(points);
             elseif ~isa(points,'FullTensorGrid')
@@ -46,13 +46,20 @@ classdef FullTensorProductIntegrationRule < IntegrationRule
             n = ndims(I.points);
         end
         
+        function I = integrationRule(I)
+
+            x = I.points.array();
+            w = I.weightsOnGrid();
+            I = IntegrationRule(x,w);
+
+        end
+
         function y = integrate(I,f)
             % y = integrate(I,f)
             % Integration of function f.
             % call f(x) with an array x of size numel(I)xd, where d is the dimension
-            x = array(I.points);
-            w = weightsOnGrid(I);
-            y = w'*f.eval(x);
+            I = integrationRule(I);
+            y = I.integrate(f);
         end
         
         function w = weightsOnGrid(I)

@@ -170,15 +170,14 @@ classdef FunctionalBasis
             
             N = length(G.weights);
             
-            A = eval(h,G.points);
-            W = spdiags(G.weights(:),0,N,N);
-            
+            A = h.eval(G.points);
             y = fun(G.points);
-            if h.isOrthonormal
-                u = A'*W*y;
-            else
-                u = (A'*W*A) \ (A'*W*y);
-            end
+            W = spdiags(sqrt(G.weights(:)),0,N,N);
+            A = W*A;
+            y = W*y;
+            [qA,rA] = qr(A,0);
+            u = rA\(qA'*y);
+            
             u = FunctionalBasisArray(u,h,size(u,2));
         end
         
@@ -235,8 +234,10 @@ classdef FunctionalBasis
         
         function ch = christoffel(f,x)
             % ch = christoffel(f)
-            % or
+            % Returns the inverse Christoffel function associated with a functional basis
+            % 
             % ch = christoffel(f,x)
+            % Evaluates the inverse Christoffel function associated with a functional basis
             
             if nargin==1
                 if f.isOrthonormal
@@ -255,16 +256,98 @@ classdef FunctionalBasis
                 end
             end
         end
+
+
+        function G = empiricalGramMatrix(f,x,w)
+            % Returns the empirical Gram matrix of a functional basis, for
+            % n points x and weights w 
+            % G = \sum_{i=1}^n w_i f(x_i)f(x_i)'
+            % (by defaults weights are equal to 1/n)        
+            % 
+            % G = gramMatrix(f,x,w)
+            % f : FunctionalBasis with ndims(f)=d
+            % x : n-by-d array
+            % w : n-by-1 array (by defaults w=ones(n,1))
+
+            n = size(x,1);
+            if nargin<3
+                w = zeros(n,1);
+                w(:)=1/n;
+            else
+                w = w(:);
+            end
+
+            F = f.eval(x);
+            w = spdiags(w,0,length(w),length(w));
+            G = F'*(w*F);            
+
+        end        
+
+        function G = gramMatrix(f,mu)
+            % G = gramMatrix(f,mu)
+            % Returns the Gram matrix of a functional basis, associated
+            % with a measure or integration rule
+            % 
+            % f : FunctionalBasis
+            % mu : Measure or IntegrationRule (if not provided, use f.measure)
+
+            if nargin<2
+                mu = f.measure;
+            end
+
+            if (mu == f.measure) && f.isOrthonormal
+                G = speye(f.cardinal());
+                return
+            end
+
+            if isa(mu,'Measure')
+                I = integrationRule(mu);
+            elseif isa(mu,'IntegrationRule')
+                I = mu;
+            end
+
+            F = f.eval(I.points);
+            W = I.weights(:);
+            W = spdiags(W,0,length(W),length(W));
+            G = F'*(W*F);            
+
+        end
         
-        function f = orthonormalize(f)
-            % f = orthonormalize(f)
-            
-            G = gramMatrix(f);
-            if normest(G-eye(size(G,1)))>1e-15
-                A = inv(chol(G,'lower'));
-                f = SubFunctionalBasis(f,A');
+        function f = orthonormalize(f,mu)
+            % f = orthonormalize(f,mu)
+            % Returns a L2 orthonormal basis, associated
+            % with a measure or integration rule
+            %
+            % f : FunctionalBasis
+            % mu : Measure or IntegrationRule (if not provided, use f.measure)
+            if nargin<2
+                mu = f.measure;
+            end
+            G = gramMatrix(f,mu);
+            tol = 1e-15;
+
+            if normest(G-eye(size(G,1)))>tol
+                use_svd = true;
+                %if use_svd
+                [V,D] = eig(full(G+G')/2);
+                D = diag(D);
+                I = find(D>tol);                
+                W = spdiags(sqrt(D(I).^-1),0,length(I),length(I));
+                A = V(:,I)*W;
+                f = SubFunctionalBasis(f,A);
+                %else
+                %A = inv(chol(G,'lower'));
+                %f = SubFunctionalBasis(f,A.');
+                %end
+                
             end
             f.isOrthonormal = true;
+            if isa(mu,'IntegrationRule')
+                f.measure = discreteMeasure(mu);
+            else
+                f.measure = mu;
+            end
+            
         end
         
         function nu = optimalSamplingMeasure(f)

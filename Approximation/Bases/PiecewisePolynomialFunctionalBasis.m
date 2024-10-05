@@ -35,7 +35,6 @@ classdef PiecewisePolynomialFunctionalBasis < FunctionalBasis
             % on (a,b)
             % points: a set of n+1 points [a=x0,...xn=b]
             % p: integer
-            % s: integer
             % h: PiecewisePolynomialFunctionalBasis
             
             h.points = points(:);
@@ -44,7 +43,7 @@ classdef PiecewisePolynomialFunctionalBasis < FunctionalBasis
             end
             h.p = p(:)';
             h.isOrthonormal = true;
-            h.measure = UniformRandomVariable(h.points(1),h.points(end));
+            h.measure = LebesgueMeasure(h.points(1),h.points(end));
         end
         
         function hx = eval(h,x,indices)
@@ -59,7 +58,7 @@ classdef PiecewisePolynomialFunctionalBasis < FunctionalBasis
             p2 = h.points(2:end);
             l = p2-p1;
             u = (x-p1(pos))./l(pos);
-            U = UniformRandomVariable(0,1);
+            U = LebesgueMeasure(0,1);
             pol = PolynomialFunctionalBasis(orthonormalPolynomials(U),0:max(h.p));
             pu = pol.eval(u);
             hx = sparse([],[],[],length(x),cardinal(h),length(x)*max(h.p+1));
@@ -67,7 +66,7 @@ classdef PiecewisePolynomialFunctionalBasis < FunctionalBasis
                 I=(pos==i);
                 if ~isempty(I)
                     J = sum(h.p(1:i-1)+1)+(1:h.p(i)+1);
-                    scale = l(i)/(h.points(end)-h.points(1));
+                    scale = l(i);%/(h.points(end)-h.points(1));
                     hx(I,J)=pu(I,1:h.p(i)+1)/sqrt(scale);
                 end
             end
@@ -89,7 +88,7 @@ classdef PiecewisePolynomialFunctionalBasis < FunctionalBasis
             p2 = h.points(2:end);
             l = p2-p1;
             u = (x-p1(pos))./l(pos);
-            U = UniformRandomVariable(0,1);
+            U = LebesgueMeasure(0,1);
             pol = PolynomialFunctionalBasis(orthonormalPolynomials(U),0:max(h.p));
             pu = pol.evalDerivative(k,u);
             hx = sparse([],[],[],length(x),cardinal(h),length(x)*max(h.p+1));
@@ -97,7 +96,7 @@ classdef PiecewisePolynomialFunctionalBasis < FunctionalBasis
                 I=(pos==i);
                 if ~isempty(I)
                     J = sum(h.p(1:i-1)+1)+(1:h.p(i)+1);
-                    scale = l(i)/(h.points(end)-h.points(1));
+                    scale = l(i);%/(h.points(end)-h.points(1));
                     hx(I,J)=pu(I,1:h.p(i)+1)/sqrt(scale)*l(i)^(-k);
                 end
             end
@@ -123,9 +122,33 @@ classdef PiecewisePolynomialFunctionalBasis < FunctionalBasis
             l = p2-p1;
             m = zeros(cardinal(h),1);
             q = cumsum(([0,h.p(1:end-1)]+1));
-            m(q) = sqrt(l)/(h.points(end)-h.points(1));
+            m(q) = sqrt(l);%/(h.points(end)-h.points(1));
         end
         
+
+        function I = gaussIntegrationRule(h,n)
+            % function I = gaussIntegrationRule(h,n) 
+            % returns an Integration Rule that integrates extactly
+            % piecewise polynomials of degree 2*n-1, using n-points
+            % gauss integration rule per interval
+            % h : PiecewisePolynomialFunctionalBasis
+            % n : integer
+            % I : IntegrationRule
+
+            w = zeros(1,0);
+            x = zeros(0,1);
+            
+            for k=1:length(h.points)-1
+                supp = h.points(k:k+1);
+                g = gaussIntegrationRule(LebesgueMeasure(supp(1),supp(2)),n);
+                x = [x;g.points];
+                w = [w,g.weights];
+            end
+
+            I = IntegrationRule(x,w);
+        end
+
+
         function x = interpolationPoints(h,varargin)
             % x = interpolationPoints(h)
             % Interpolation points for PiecewisePolynomialFunctionalBasis
@@ -155,7 +178,7 @@ classdef PiecewisePolynomialFunctionalBasis < FunctionalBasis
             % of a PolynomialFunctionalBasis on each element
             U = UniformRandomVariable(0,1);
             pol = PolynomialFunctionalBasis(orthonormalPolynomials(U),0:max(h.p));
-            u = magicPoints(pol,[],1:max(h.p)+1);
+            u = magicPoints(pol);
             
             p1 = h.points(1:end-1);
             p2 = h.points(2:end);
@@ -236,11 +259,11 @@ classdef PiecewisePolynomialFunctionalBasis < FunctionalBasis
                     pi = [0:ne-1,ne-1:-1:0];
                     xi = [0,2.^-(ne:-1:2),1/2,1-2.^-(2:ne),1]';
                 elseif ismember(ai,s)
-                    pi = [0:ne-1];
+                    %pi = [0:ne-1];
                     xi = [0,2.^-(ne:-1:1),1]';
                     pi = 0:length(xi)-2;
                 elseif ismember(bi,s)
-                    pi = [ne-1:-1:0];
+                    %pi = [ne-1:-1:0];
                     xi = [0,1-2.^-(1:ne),1]';
                     pi = length(xi)-2:-1:0;
                 end
