@@ -146,9 +146,10 @@ fprintf('\nSum of T1 along dimensions\n-------------------------\n')
 fprintf('dimensions of T1        : %s\n', num2str(T1.sz))
 T1sum = sum(T1,1);
 fprintf('dimensions of sum(T1,1) : %s\n', num2str(T1sum.sz))
+fprintf('dimensions of sum(T1,1) : %s\n', num2str(size(squeeze(T1sum))))
 T1sum = sum(T1,[2,5,7]);
 fprintf('dimensions of sum(T1,[2,5,7]) : %s\n', num2str(T1sum.sz))
-fprintf('sum of all entries = %d\n',sum(T1,'all'))
+fprintf('sum of all entries = %d\n',squeeze(sum(T1,1:T1.order)))
 
 
 %% Changing root node of a tree based tensor
