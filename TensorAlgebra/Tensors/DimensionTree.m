@@ -484,7 +484,9 @@ classdef DimensionTree
             % nod: extracted nodes from T
             %
             % the property dim2ind of subT gives the nodes indices in subT corresponding to dimensions in T.dims{r} (not sorted)
-            
+            if length(r)>1
+                error('provide a single node')
+            end
             dims = T.dims{r};
             nod = [r,descendants(T,r)];
             a = T.adjacencyMatrix(nod,nod);

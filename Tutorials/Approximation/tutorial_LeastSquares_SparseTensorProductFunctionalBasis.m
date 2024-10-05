@@ -79,20 +79,20 @@ rv = getRandomVector(H);
 % rv = RandomVector(NormalRandomVariable,d);
 
 s = AdaptiveSparseTensorAlgorithm();
-% s.nbSamples = 1;
+s.nbSamples = 1000;
 % s.addSamplesFactor = 0.1;
 s.tol = 1e-4;
 s.tolStagnation = 5e-2;
 % s.tolOverfit = 1.1;
-% s.bulkParameter = 0.5;
-% s.adaptiveSampling = true;
+ s.bulkParameter = 0.8;
+ s.adaptiveSampling = false;
 % s.adaptationRule = 'reducedmargin';
 s.display = true;
 s.displayIterations = true;
 s.maxIndex = p;
 
 ls = LinearModelLearningSquareLoss();
-ls.regularization = true;
+ls.regularization = false;
 % ls.regularizationType = 'l1';
 ls.errorEstimation = true;
 % ls.errorEstimationType = 'leaveout';

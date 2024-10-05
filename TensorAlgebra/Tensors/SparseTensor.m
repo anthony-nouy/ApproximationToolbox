@@ -139,6 +139,9 @@ classdef SparseTensor < AlgebraicTensor
                 s = sparse(numel(locI),1);
                 s(locI) = x.data(locJ);
             else
+                J = x.indices.array;
+                %[locI,locJ] = ismember(I,J(:,dims),'rows');
+                %s = sparse(...);
                 error('Method not implemented.')
             end
             
@@ -363,8 +366,23 @@ classdef SparseTensor < AlgebraicTensor
             error('Method not implemented.')
         end
         
-        function x = kron(x,y)
-            error('Method not implemented.')
+        function z = kron(x,y)
+            dx = length(x.sz);
+            dy = length(y.sz);
+            dz = max(dx,dy);
+            sx = [x.sz,ones(1,dz-dx)];
+            sy = [y.sz,ones(1,dz-dy)];
+            nx = numel(x.data);
+            ny = numel(y.data);
+            z = y.data(:)*x.data(:).';           
+            z = z(:);
+            ix = [x.indices.array , ones(length(x.indices),dz-dx)];
+            iy = [y.indices.array , ones(length(y.indices),dz-dy)];
+            [indy,indx] = ind2sub([ny,nx],1:nx*ny);
+            ind = iy(indy,:) + repmat(sy,length(z),1) .* (ix(indx,:)-1);
+            sizes = sx.*sy;
+            z = SparseTensor(z,MultiIndices(ind),sizes);            
+
         end
         
         function s = dotWithRankOneMetric(x,y,M)

@@ -85,10 +85,17 @@ fprintf('\nt5 = outerProductEvalDiag(t1,t2,3,4) = \n'); disp(t5)
 t6 = outerProductEvalDiag(t1,t2,[2,3],[5,4],true);
 fprintf('\nt6 = outerProductEvalDiag(t1,t2,[2,3],[5,4],true) = \n'); disp(t6)
 
+% Contraction by vectors along specified dimensions
+dims = [2,3];
+V = {rand(size(t1,dims(1)),1),rand(size(t1,dims(2)),1)};
+t7 = timesVector(t1,V,dims)
+fprintf('squeezing the tensor')
+squeeze(t7)
+
 % Contraction by a matrix along a specified dimension
-mu = 2;
-A = rand(3,size(t1,mu));
-t7 = timesMatrix(t1,A,2);
+dims = [2,3];
+A = {rand(6,size(t1,dims(1))),rand(8,size(t1,dims(2)))};
+t8 = timesMatrix(t1,A,dims)
 
 
 %% Orthogonalization of a FullTensor

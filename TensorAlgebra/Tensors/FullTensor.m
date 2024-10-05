@@ -217,9 +217,13 @@ classdef FullTensor < AlgebraicTensor
             %
             % y = sum(x,i)
             % x: FullTensor of order d
-            % i: array of integers or 'all'
+            % i: array of integers or 'all' (by default 1:x.order)
             % y: FullTensor of order d
             % Use squeeze to remove dimensions
+
+            if nargin==1 || (isa(i,'char') && strcmpi(i,'all'))
+                i = 1:x.order;
+            end
 
             i=sort(i);
             for k=length(i):-1:1
@@ -227,6 +231,10 @@ classdef FullTensor < AlgebraicTensor
             end
             x.sz(i) = 1;
             x = FullTensor(x.data,x.order,x.sz);
+            if all(x.sz==1)
+                x = double(x);
+            end
+
 
 %            if x.order==1
 %                x = sum(x.data);
@@ -256,7 +264,7 @@ classdef FullTensor < AlgebraicTensor
             z = reshape(permute(reshape(y.data(:)*x.data(:).',[sy sx]),...
                 reshape(reshape(1:2*dz,dz,2)',1, ...
                 2*dz)),(sx.*sy));
-            sizes = x.sz.*y.sz;
+            sizes = sx.*sy;
             z = FullTensor(z,length(sizes),sizes);
         end
         
@@ -444,7 +452,10 @@ classdef FullTensor < AlgebraicTensor
             end
             V = cellfun(@(v) v',V,'uniformoutput',false);
             x = timesMatrix(x,V,varargin{:});
-            x = squeeze(x,varargin{:});
+            %x = squeeze(x,varargin{:});
+            if all(x.sz==1)
+                x = double(x);
+            end
         end
         
         function x = timesMatrix(x,M,varargin)
@@ -676,7 +687,10 @@ classdef FullTensor < AlgebraicTensor
             if length(dims)~=length(I)
                 error('Wrong size of multiindices.')
             end
-            if nargin==2 || numel(dims)==x.order
+            
+            if x.order==1
+                s = x.data(I{1});
+            elseif nargin==2 || numel(dims)==x.order
                 I = sub2ind(x.sz,I{:});
                 s = x.data(I);
             elseif numel(dims)==1

@@ -192,13 +192,16 @@ classdef TreeBasedTensor < AlgebraicTensor
             x = x + (-y);
         end
 
-        function x = changeRoot(x,nod)
+        function [x,permNod] = changeRoot(x,nod)
             % Change the root node of a dimension tree
             % 
-            % function xnew = changeRoot(x,nod)
+            % function [xnew,permNod] = changeRoot(x,nod)
             % returns a new tensor associated with the 
             % dimension tree T = changeRoot(x.tree,nod)
             % with nod as the new root
+            % 
+            % rnod returns the permutation applied to the tensor
+            % x.tensors{nod}
             %
             % nod should be an active node
             %             
@@ -211,7 +214,10 @@ classdef TreeBasedTensor < AlgebraicTensor
             % and the resulting tensor has order 
             % x.order + 1
 
+            
+
             if nod==x.tree.root
+                permNod = 1:x.tensors{x.tree.root}.order;
                 return
             end
             if ~x.isActiveNode(nod)
@@ -222,19 +228,24 @@ classdef TreeBasedTensor < AlgebraicTensor
                 x.tree = x.tree.addChild(x.tree.root);
                 x.tensors{end+1} = [];
                 x = updateProperties(x); 
-                x = changeRoot(x,nod);
+                [x,permNod] = changeRoot(x,nod);
             else
+
 
                 t = x.tree;
                 [tnew,modifNod] = t.changeRoot(nod);
+                
                 for k=modifNod
-                    if x.isActiveNode(k) && ~t.isLeaf(k) 
+                    if x.isActiveNode(k) && ~t.isLeaf(k)
                         p = nonzeros(t.parent(k));
                         ch = nonzeros(t.children(:,k))';
                         pnew = nonzeros(tnew.parent(k));
                         chnew = nonzeros(tnew.children(:,k))';
                         [~,r] = ismember([chnew,pnew],[ch,p]);
                         x.tensors{k} = permute(x.tensors{k},r);
+                        if k==nod
+                            permNod = r;
+                        end
                     end
                 end
                 if t.isLeaf(nod)
@@ -244,7 +255,8 @@ classdef TreeBasedTensor < AlgebraicTensor
                     ch = t.nbNodes+1;
                     chnew = nonzeros(tnew.children(:,nod))';
                     [~,r] = ismember(chnew,[ch,p]);
-                    x.tensors{nod} = permute(x.tensors{nod},r); 
+                    x.tensors{nod} = permute(x.tensors{nod},r);
+                    permNod = r;
                 end
                 x.tree = tnew;
                 
@@ -252,19 +264,26 @@ classdef TreeBasedTensor < AlgebraicTensor
             end
 
 
+
         end
         
         function x = subTensor(x,varargin)
             assert(nargin == 1+x.order, 'Wrong number of input arguments.');
-            t = x.tree;
-            for k = 1:x.order
-                nod = t.dim2ind(k);
-                if ~x.isActiveNode(nod)
-                    i = t.parent(nod);
-                    chNum = t.childNumber(nod);
-                    x.tensors{i} = evalAtIndices(x.tensors{i},varargin{k},chNum);
-                else
-                    x.tensors{nod} = evalAtIndices(x.tensors{nod},varargin{k},1);
+            
+            if x.order==1
+                nod = find(x.tree.isLeaf);
+                x.tensors{nod} =  evalAtIndices(x.tensors{nod},varargin{1},1);                
+            else
+                t = x.tree;
+                for k = 1:x.order
+                    nod = t.dim2ind(k);
+                    if ~x.isActiveNode(nod)
+                        i = t.parent(nod);
+                        chNum = t.childNumber(nod);
+                        x.tensors{i} = evalAtIndices(x.tensors{i},varargin{k},chNum);
+                    else
+                        x.tensors{nod} = evalAtIndices(x.tensors{nod},varargin{k},1);
+                    end
                 end
             end
             x = updateProperties(x);
@@ -295,10 +314,14 @@ classdef TreeBasedTensor < AlgebraicTensor
                     
                 end
             end
-            if x.ranks(t.root) > 1
-                dims = [dims,x.order+1];
+            if maxLvl==0
+                dims = 1;
             end
             xf = xf{t.root};
+            if x.ranks(t.root) > 1 || xf.order == length(dims) + 1 
+                dims = [dims,x.order+1];
+            end
+            
             if xf.order>1
                 xf = ipermute(xf,dims);
             end
@@ -746,17 +769,42 @@ classdef TreeBasedTensor < AlgebraicTensor
         function [xd,s] = evalDiag(x,dims)
             if nargin==1
                 dims = 1:x.order;
+            end
+
+            
+
+            if length(dims)~=x.order || ~all(sort(dims)==1:x.order)
+                t = x.tree;
+                
+                alpha = t.nodeWithDims(dims);
+                if length(alpha)>1
+                    alpha = alpha(t.level(alpha) == min(t.level(alpha)));
+                end
+                if ~isempty(alpha)
+                [st , nodes] = t.subDimensionTree(alpha);
+                xs = TreeBasedTensor(x.tensors(nodes), st);
+                xs = evalDiag(xs);
+                x.tensors{alpha} = xs;
+                x.tensors(t.descendants(alpha)) = {[]};
+                remainingDims = fastSetdiff(1:x.order , t.dims{alpha});
+                keepind = fastSetdiff(1:t.nbNodes, t.descendants(alpha));
+                a = t.adjacencyMatrix(keepind,keepind);
+                [~,dim2ind]=ismember(t.dim2ind(remainingDims),keepind);
+                dim2ind = [find(alpha == keepind) ,  dim2ind];
+                t = DimensionTree(dim2ind,a);
+                xd = TreeBasedTensor(x.tensors(keepind),t);
+                else                    
+                    error('Method not implemented.')
+                end
+
+
             else
-                error('Method not implemented.')
-            end
-            if ~all(sort(dims) == (1:x.order))
-                error('Method not implemented.')
-            end
             t = x.tree;
             s = x.tensors;
             nodes = t.internalNodes;
             for l = max(t.level)-1:-1:0
                 for nod = fastIntersect(nodesWithLevel(t,l),nodes)
+                    
                     chNod = nonzeros(t.children(:,nod));
                     ischa = x.isActiveNode(chNod);
                     repcha = find(ischa);
@@ -785,6 +833,8 @@ classdef TreeBasedTensor < AlgebraicTensor
             xd = s{t.root};
             if isa(xd,'FullTensor') && xd.order==1
                 xd=xd.data;
+            end
+
             end
         end
         
@@ -856,6 +906,7 @@ classdef TreeBasedTensor < AlgebraicTensor
             end
             x.isOrth = false;
             x.orthNode = 0;
+
             x = updateProperties(x);
         end
         
@@ -1000,7 +1051,7 @@ classdef TreeBasedTensor < AlgebraicTensor
             end
             V = cellfun(@(v) v',V,'uniformoutput',false);
             x = timesMatrix(x,V,varargin{:});
-            x = squeeze(x,varargin{:});
+            %x = squeeze(x,varargin{:});
         end
         
         function [x] = timesDiagMatrix(x,M,order)
@@ -1272,6 +1323,33 @@ classdef TreeBasedTensor < AlgebraicTensor
             x.isOrth = true;
             x.orthNode = t.root;
         end
+
+        function ms = minimalSubspace(x,nod)
+
+            if x.tree.isLeaf(nod)
+                if x.isActiveNode(nod)
+                    ms = x.tensors{nod};
+                else
+                    pnod = x.tree.parent(nod);
+                    n = size(x.tensors{pnod},x.tree.childNumber(nod));
+                    ms = FullTensor(eye(n),2,[n,n]);
+                end
+                ms = TensorBasis(ms);
+
+            elseif x.tree.root == nod
+                ch = nonzeros(x.tree.children(:,nod));
+                if length(ch)==x.tensors{nod}.order
+                    x.tensors{nod} = reshape(x.tensors{nod},[x.tensors{nod}.sz , 1]);
+                end
+                ms = TensorBasis(x);
+            else
+                [subt,subnodes] = x.tree.subDimensionTree(nod);
+                ms = TreeBasedTensor(x.tensors(subnodes), subt);
+                ms = TensorBasis(ms);
+            end
+
+
+        end
         
         function x = orthAtNode(x,nod)
             % ORTHATNODE - Orthogonalization of the representation with respect to a given node
@@ -1526,7 +1604,7 @@ classdef TreeBasedTensor < AlgebraicTensor
                 error('Method not implemented for this format.')
             end
             for nod = 1:x.tree.nbNodes
-                if ~isempty(x.tensors{nod}) && ~isa(x.tensors{nod},'FullTensor')
+                if ~isempty(x.tensors{nod}) && ~isa(x.tensors{nod},'FullTensor') && ~isa(x.tensors{nod},'SparseTensor')  
                     sznod = size(x.tensors{nod});
                     ch = nonzeros(x.tree.children(:,nod));
                     if nod == x.tree.root
@@ -1815,7 +1893,7 @@ classdef TreeBasedTensor < AlgebraicTensor
             % f = \sum_{k=1}^{r_\alpha} v^\alpha_k w^\alpha_k
             % (optionally for a node \alpha = mu)
             %
-            % v = EVALDIAGBELOW(f,mu)
+            % v = EVALDIAGBELOW(f,mu,exceptNodes)
             % f: TreeBasedTensor
             % mu: 1-by-1 integer
             % exceptNodes: 1-by-m integer

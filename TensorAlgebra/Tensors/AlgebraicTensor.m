@@ -122,7 +122,7 @@ classdef (Abstract) AlgebraicTensor
             
             s = subTensor(x,I{:});
             if nargin>2 && numel(dims)>1 && N==1
-                s = squeeze(s);
+                s = squeeze(s,dims(2:end)); 
             else
                 if nargin>2 && numel(dims)>1
                     s = evalDiag(s,dims);

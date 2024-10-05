@@ -47,6 +47,30 @@ switch lower(cas)
             (1+2*x(:,7).*x(:,3)./log(exp(7.71+1.0056*x(:,2))./x(:,1))./x(:,1).^2./x(:,8)+...
             x(:,3)./x(:,5)));
         fun = @(x) g(transfer(RV,X,x));
+    case 'boreholeuniform'
+        X = cell(8,1);
+        
+        %X{1}=NormalRandomVariable(0.1,0.0161812);
+        %X{2}=NormalRandomVariable(0,1);
+        X{1}=UniformRandomVariable(0.05,0.15);
+        X{2}=UniformRandomVariable(100,50000);
+        
+        X{3}=UniformRandomVariable(63070,115600);
+        X{4}=UniformRandomVariable(990,1110);
+        X{5}=UniformRandomVariable(63.1,116);
+        X{6}=UniformRandomVariable(700,820);
+        X{7}=UniformRandomVariable(1120,1680);
+        X{8}=UniformRandomVariable(9855,12045);
+        
+        X = RandomVector(X);
+        RV = getStandardRandomVector(X);
+        
+        g = @(x) 2*pi*x(:,3).*(x(:,4)-x(:,6))./(...
+            log(x(:,2)./x(:,1)).*...
+            (1+2*x(:,7).*x(:,3)./log(x(:,2)./x(:,1))./x(:,1).^2./x(:,8)+...
+            x(:,3)./x(:,5)));
+        fun = @(x) g(transfer(RV,X,x));
+        
     case 'ishigami'
         % fun(x) = sin(x_1) + a*sin(x_2)^2 + b*(x_3)^4*sin(x_1)
         % (by default a=7, b=0.1)

@@ -21,16 +21,20 @@ classdef FeatureMap < Function
     
     properties
         featureMap
+        featureNumber
     end
     
     methods
-        function f = FeatureMap(map)
-            % f = FeatureMap(map)
+        function f = FeatureMap(map,n)
+            % f = FeatureMap(map,n)
             % Constructor for the FeatureMap class, that defines a feature map
+            % with values in R^n
             % map: function
+            % n: integer
             % f: FeatureMap
             
             f.featureMap = map;
+            f.featureNumber = n;
         end
         
         function y = eval(f,x)
@@ -40,7 +44,7 @@ classdef FeatureMap < Function
             % x: N-by-d array
             % y: N-by-n array
             
-            y = f.featureMap(x);
+            y = f.map(x);
         end
 
 

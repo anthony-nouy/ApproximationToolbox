@@ -33,7 +33,7 @@ fun = @(i) cos(i(:,1)/sz(1))+1./(1+(i(:,2)/sz(2)).^2+(i(:,3)/sz(3)).^4)+i(:,3)/s
 fun = UserDefinedFunction(fun,d);
 fun.evaluationAtMultiplePoints = true;
 X = randomMultiIndices(sz);
-tol = 1e-8;
+
 
 %% HOPCA (PCA for each dimension, provides reduced spaces)
 fprintf('--- Higher order PCA ---- \n')
@@ -42,6 +42,7 @@ TPCA.PCASamplingFactor = 1;
 TPCA.PCAAdaptiveSampling = 0;
 % prescribed tolerance
 fprintf('\nPrescribed tolerance\n')
+tol = 1e-8;
 TPCA.tol = tol;
 [subbases,outputs] = TPCA.hopca(fun,sz);
 fprintf('Number of evaluations \n= [%s]\n',num2str(cellfun(@(x) x.numberOfEvaluations,outputs)));
@@ -78,6 +79,7 @@ fprintf('Error = %d\n',norm(ytest-fxtest)/norm(ytest))
 
 % prescribed tolerance
 fprintf('\nPrescribed tolerance\n')
+tol = 1e-8;
 TPCA.tol = tol;
 TPCA.maxRank = inf;
 [f,output] = TPCA.TuckerApproximation(fun,sz);
@@ -115,8 +117,10 @@ fprintf('Mean squared error = %d\n',err)
 
 % prescribed tolerance
 fprintf('\nPrescribed tolerance\n')
+tol = 1e-8;
 TPCA.tol = tol;
 TPCA.maxRank = inf;
+TPCA.PCASamplingFactor = 1.2;
 [f,output] = TPCA.TBApproximation(fun,sz,tree);
 
 fprintf('Number of evaluations = %d\n',output.numberOfEvaluations);
@@ -147,10 +151,44 @@ ytest  = fun(xtest);
 err = norm(ytest-fxtest)/norm(ytest);
 fprintf('Mean squared error = %d\n',err)
 
+%% Approximation in Tree based format, different subsampling methods
+% prescribed ranks
+TPCA.tol = inf;
+TPCA.maxRank = 8;
+TPCA.PCASamplingFactor = 1;
+
+fprintf('\nSelection of indices with eim (magicIndices)\n');
+TPCA.subSampling = 'eim';
+[f,output] = TPCA.TBApproximation(fun,sz,tree);
+
+fprintf('Number of evaluations = %d\n',output.numberOfEvaluations);
+fprintf('Storage = %d\n',storage(f));
+fprintf('Ranks = [%s]\n',num2str(f.ranks));
+
+xtest = random(X,1000);
+fxtest = f.evalAtIndices(xtest);
+ytest  = fun(xtest);
+err = norm(ytest-fxtest)/norm(ytest);
+fprintf('Mean squared error = %d\n',err)
+
+fprintf('\nSelection of indices with maxvol\n');
+PCA.subSampling = 'maxvol';
+PCA.subSamplingTol = 1;
+[f,output] = TPCA.TBApproximation(fun,sz,tree);
+
+fprintf('Number of evaluations = %d\n',output.numberOfEvaluations);
+fprintf('Storage = %d\n',storage(f));
+fprintf('Ranks = [%s]\n',num2str(f.ranks));
+
+fxtest = f.evalAtIndices(xtest);
+ytest  = fun(xtest);
+err = norm(ytest-fxtest)/norm(ytest);
+fprintf('Mean squared error = %d\n',err)
+
 %% Approximation in Tensor Train format
 fprintf('--- Approximation in Tensor Train format ---- \n')
 TPCA = TensorPrincipalComponentAnalysis();
-TPCA.PCASamplingFactor = 1;
+TPCA.PCASamplingFactor = 2;
 TPCA.PCAAdaptiveSampling = 0;
 % prescribed tolerance
 fprintf('\nPrescribed tolerance\n')

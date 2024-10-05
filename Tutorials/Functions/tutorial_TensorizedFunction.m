@@ -67,6 +67,7 @@ b = 2; % Scaling factor
 t = Tensorizer(b,L,dim);
 t.orderingType = 2; % ordering of variables 
 fun = UserDefinedFunction(vectorize('1./(1+x1+x2)'),dim);
+fun = UserDefinedFunction(vectorize('x1<x2'),dim);
 fun.evaluationAtMultiplePoints = true;
 tensorizedfun = t.tensorize(fun);
 tensorizedfun.f.evaluationAtMultiplePoints = true;
