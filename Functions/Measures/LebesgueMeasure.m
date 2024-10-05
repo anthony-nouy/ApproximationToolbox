@@ -60,7 +60,7 @@ classdef LebesgueMeasure < Measure
         end
         
         function ok = eq(m1,m2)
-            if ~(isa(r1,'LebesgueMeasure') && isa(m2,'LebesgueMeasure') )
+            if ~(isa(m1,'LebesgueMeasure') && isa(m2,'LebesgueMeasure') )
                 ok = 0;
             elseif ~strcmp(class(m1),class(m2))
                 ok = 0;
@@ -87,7 +87,36 @@ classdef LebesgueMeasure < Measure
                 error('truncated support not defined for Lebesgue measure on unbounded domain')
             end
         end
+
+
+        function Y = discretize(X,n)
+            % Discretize the LebesgueMeasure and returns a
+            % discrete measure
+            % 
+            % Y = discretize(X,n)
+
+            s = X.support();
+            Y = DiscreteMeasure(discretize(UniformRandomVariable(s(1),s(2)),n));
+            Y.weights = Y.weights * (s(2)-s(1));
+        end
         
+        function Y = discretizeSupport(X,varargin)
+            % Discretize the LebesgueMeasure and returns a
+            % discrete measure
+            % 
+            % Y = discretizeSupport(X,x)
+            % For a n-by-1 array x, returns a discrete measure
+            % taking n possible values x(1),...x(n)
+            %
+            % Y = discretizeSupport(X,n,[a,b])
+            % For an integer n, returns a discrete measure
+            % taking n possible values x(1),...x(n)
+            s = X.support();
+            Y = DiscreteMeasure(discretizeSupport(UniformRandomVariable(s(1),s(2)),varargin{:}));
+            Y.weights = Y.weights * (s(2)-s(1));
+
+
+        end
         
         function p = orthonormalPolynomials(l,varargin)
             % p = orthonormalPolynomials(l)
@@ -96,7 +125,6 @@ classdef LebesgueMeasure < Measure
             % p: ShiftedOrthonormalPolynomials
             
             p = LegendrePolynomialsLebesgue(varargin{:});
-            %p.orthogonalPolynomialsNorms = p.orthogonalPolynomialsNorms*sqrt(mass(l));
             if (l.a~=-1) || (l.b~=1)
                 p = ShiftedOrthonormalPolynomials(p,(l.a+l.b)/2,(l.b-l.a)/2);
             end

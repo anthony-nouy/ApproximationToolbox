@@ -48,6 +48,12 @@ classdef UniformRandomVariable < RandomVariable
             end
         end
 
+
+        function o = isDiscrete(X)
+            o = true;
+        end
+        
+
         function X = shift(X,b,s)
             % Y = shift(X,b,s)
             % returns the uniform random variable Y = sX + b
@@ -55,6 +61,10 @@ classdef UniformRandomVariable < RandomVariable
 
             X.a = s*X.a+b;
             X.b = s*X.b+b;
+        end
+
+        function y = dlogpdf(~,x)
+            y = zeros(size(x));
         end
 
         function Xstd = getStandardRandomVariable(X)

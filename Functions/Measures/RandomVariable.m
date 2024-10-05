@@ -41,7 +41,7 @@ classdef RandomVariable < ProbabilityMeasure
         function n = ndims(~)
             n = 1;
         end
-        
+
         function P = cdf(X,x)
             % P = cdf(X,x)
             % Computes the cumulative distribution function of the random variable X at point(s) x
@@ -51,8 +51,8 @@ classdef RandomVariable < ProbabilityMeasure
             
             param = getParameters(X);
             P = cdf(X.name,x,param{:});
-            P(P==1) = 1-eps;
-            P(P==0) = eps;
+            %P(P==1) = 1-eps;
+            %P(P==0) = eps;
         end
         
         function P = icdf(X,x)
@@ -120,11 +120,13 @@ classdef RandomVariable < ProbabilityMeasure
                 x = n;
             end
             v = [-inf;(x(2:end)+x(1:end-1))/2;inf];
-            p = X.cdf(v(2:end))-X.cdf(v(1:end-1));       
+            p = X.cdf(v(2:end))-X.cdf(v(1:end-1));
             p = max(p,0);
+            p = X.pdf(x);
             Y = DiscreteRandomVariable(x,p);
 
         end
+
 
         function Y = discretize(X,n)
             % Discretize a random variable X and returns a

@@ -53,6 +53,30 @@ classdef ProductMeasure < Measure
                 ok = builtin('isa',obj,ClassName);
             end
         end
+
+        function G = gaussIntegrationRule(X,n)
+            % G = gaussIntegrationRule(X,n)
+            % Returns the multivariate gauss integration rule associated 
+            % with the product measure X
+            % X: ProductMeasure
+            % n: integer
+            % G: FullTensorProductIntegrationRule
+            
+            if length(n)==1
+                n = repmat(n,1,length(X.measures));
+            elseif length(n)~=length(X.measures)
+                error('n should be of length 1 or the number of measures')
+            end
+            points = cell(1,length(n));
+            weights = cell(1,length(n));
+            for i=1:length(n)
+                g = gaussIntegrationRule(X.measures{i},n(i));
+                points{i} = g.points; 
+                weights{i} = g.weights; 
+            end
+
+            G = FullTensorProductIntegrationRule(points,weights);
+        end
         
         function ok = eq(p,q)
             % ok = eq(p,q)
@@ -165,7 +189,11 @@ classdef ProductMeasure < Measure
                 s{k} = truncatedSupport(p.measures{k});
             end
         end
-        
+
+        function o = isDiscrete(p)
+            o = all(cellfun(@isDiscrete,p.measures));
+        end
+
         function m = mass(p)
             % m = mass(p)
             

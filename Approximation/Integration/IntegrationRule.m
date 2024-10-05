@@ -33,19 +33,35 @@ classdef IntegrationRule
             
             I.points = points;
             I.weights = weights(:).';
+            if length(weights)~=size(points,1)
+                error('number of points is not equal to number of weights')
+            end
         end
         
         function n = ndims(I)
             n = size(I.points,2);
         end
         
+        function ok = eq(~,J)
+            ok = true;
+            if ~isa(J,'IntegrationRule')
+                ok = false;
+            else
+                ok = false;
+                warning('to be improved')
+            end
+
+        end
+
         function y = integrate(I,f)
             % y = integrate(I,f)
             % Integration of function f.
-            % call f(x) with an array x of size numel(I)xd, where d is the dimension
+            % call f(x) with an array x of size numel(I.points)xd, where d is the dimension
+            % f(x) should return an array of size numel(I.points) x m
+            % Then y is of size m-by-1
             
             fx = f(I.points);
-            y = I.weights(:)'*fx;
+            y = (I.weights(:).'*fx).';
             
         end
         
@@ -53,6 +69,10 @@ classdef IntegrationRule
             p = FullTensorGrid(I.points(:),d);
             w = repmat({I.weights},d,1);
             I = FullTensorProductIntegrationRule(p,w);
+        end
+
+        function mu = discreteMeasure(I)
+            mu = DiscreteMeasure(I.points,I.weights);
         end
     end
     

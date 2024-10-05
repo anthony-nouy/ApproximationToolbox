@@ -31,11 +31,17 @@ classdef DiscreteMeasure < Measure
             % values: n-by-d array containing the set of values (x_1,...,x_N) taken by the random variables
             % weights: array containing the weights w_1,...,w_n
             % By default, w_i = 1
+            %
+            % X = DiscreteMeasure(Y)
+            % if Y is a DiscreteRandomVariable
+            % returns values = Y.values and weights = Y.probabilities
             
-            X.values = values;
-            %if ndims(values) == 1
-            %    values = values(:);
-            %end
+            if nargin==1 && isa(values,'DiscreteRandomVariable')
+                X.values = values.values;
+                X.weights = values.probabilities;
+                return
+            end
+
             N = size(values, 1);
             if nargin == 1
                 weights = ones(1,N);
@@ -44,7 +50,12 @@ classdef DiscreteMeasure < Measure
             end
             X.weights = weights(:);
         end
+
+        function o = isDiscrete(~)
+            o = true;
+        end
         
+
         function n = ndims(X)
             n = size(X.values,2);
         end
@@ -67,7 +78,7 @@ classdef DiscreteMeasure < Measure
             % X: DiscreteRandomVariable in R^d
             % s: 2-by-d array
             
-            s=[min(X.values,[],1);max(X.values,[],1)];
+            s=[min(X.values,[],1),max(X.values,[],1)];
         end
         
         
@@ -120,15 +131,19 @@ classdef DiscreteMeasure < Measure
         end
 
 
-        function r = random(X,n,varargin)
+        function [r,I] = random(X,n,varargin)
             % r = random(X,n)
             % Generates n random numbers according to the probability distribution obtained by rescaling the DiscreteMeasure
             % X: DiscreteMeasure
             % n: integer
-            % r: double of size n-by-d
+            % r: n-by-d array 
+            % I: n-by-1 array (indices of the generated points in X.values)
             
             if nargin==1
                 n=1;
+            end
+            if any(X.weights<0)
+                error('weights should be non negative')
             end
             Y = DiscreteRandomVariable((1:length(X.weights))',X.weights/sum(X.weights));
             I = icdf(Y,rand(n,1));

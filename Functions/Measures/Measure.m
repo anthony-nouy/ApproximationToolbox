@@ -19,6 +19,16 @@
 
 classdef (Abstract) Measure
     
+    methods
+        
+        function o = isDiscrete(~)
+            o = false;
+        end
+        
+
+    end
+
+
     methods (Abstract)
         ok = eq(p,q)
         % ok = eq(p,q)

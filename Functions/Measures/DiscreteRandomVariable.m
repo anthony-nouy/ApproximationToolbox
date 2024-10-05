@@ -54,6 +54,9 @@ classdef DiscreteRandomVariable < RandomVariable
             end
         end
 
+        function n = ndims(X)
+            n = size(X.values,2);
+        end
 
         function p = orthonormalPolynomials(X,varargin)
             % p = orthonormalPolynomials(X)
@@ -63,6 +66,10 @@ classdef DiscreteRandomVariable < RandomVariable
  
             p = DiscretePolynomials(X);
 
+        end
+
+        function o = isDiscrete(~)
+            o = true;
         end
         
         function Xstd = getStandardRandomVariable(X)
@@ -84,7 +91,7 @@ classdef DiscreteRandomVariable < RandomVariable
             % X: DiscreteRandomVariable in R^d
             % s: 2-by-d array
             
-            s=[min(X.values,[],1);max(X.values,[],1)];
+            s=[min(X.values,[],1),max(X.values,[],1)];
         end
         
         function varargout = plot(X,type,varargin)
@@ -212,17 +219,20 @@ classdef DiscreteRandomVariable < RandomVariable
             v = var(X);
         end
         
-        function r = random(X,n,varargin)
-            % r = random(X,n)
+        function [r,I] = random(X,n,varargin)
+            % [r,I] = random(X,n)
             % Generates n random numbers according to the distribution of the DiscreteRandomVariable X over R^d
             % X: DiscreteRandomVariable
             % n: integer
-            % r: double of size n-by-d
+            % r: n-by-d array 
+            % I: n-by-1 array (indices of the generated points in X.values)
+            
             if nargin==1
                 n=1;
             end
-            Y = DiscreteRandomVariable((1:length(X.probabilities))',X.probabilities);
-            I = icdf(Y,rand(n,1));
+            I = randsample((1:length(X.probabilities))',n,true,X.probabilities);
+            %Y = DiscreteRandomVariable((1:length(X.probabilities))',X.probabilities);
+            %I = icdf(Y,rand(n,1));
             r = X.values(I,:);
         end
     end

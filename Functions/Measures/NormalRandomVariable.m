@@ -78,7 +78,12 @@ classdef NormalRandomVariable < RandomVariable
             end
             
         end
+
+        function y = dlogpdf(X,x)
+            y = -(x-X.mu)/X.sigma^2;
+        end
         
+
         function p = getParameters(X)
             % p = getParameters(X)
             % Returns the parameters of the normal random variable X in an array
