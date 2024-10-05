@@ -32,6 +32,8 @@ classdef TensorPrincipalComponentAnalysis
         PCAAdaptiveSampling = false;
         tol = 1e-8; % relative precision
         maxRank = Inf; % maximum rank
+        subSampling = 'eim'; % method for selecting indices
+        subSamplingTol = []; % tolerance for subsampling
     end
     
     methods
@@ -50,11 +52,18 @@ classdef TensorPrincipalComponentAnalysis
             % TPCA.PCASamplingFactor : factor for determining the number 
             %    of samples N for the estimation of the principal components (1 by default)
             %         
-            %            - if prescribed precision, N = TPCA.PCASamplingFactor*N_alpha
-            %            - if prescribed rank, N = TPCA.PCASamplingFactor*t
+            %            o if prescribed precision, N = TPCA.PCASamplingFactor*N_alpha
+            %            o if prescribed rank, N = TPCA.PCASamplingFactor*t
             %
             % s.PCAAdaptiveSampling (true or false): adaptive sampling to 
             %       determine the principal components with prescribed precision
+            %
+            % s.subSampling : method for selecting indices (interpolation points)
+            %   o s.subSampling='eim' (by defaults): magic points constructed by greedy algorithm
+            %   o s.subSampling='maxvol' : maxvol algorithm (set tolerance in s.subSamplingTol)
+            %
+            % s.subSamplingTol : tolerance for subsampling
+
         end
         
         function [pc,output] = alphaPrincipalComponents(TPCA,fun,sz,alpha,tol,Balpha,Ialpha)
@@ -327,7 +336,15 @@ classdef TensorPrincipalComponentAnalysis
                     tensors{alpha} = FullTensor(pcalpha,2,szalpha);
                     
                     Balpha = Balpha*pcalpha;
-                    Ialpha = magicIndices(Balpha);
+                    switch TPCA.subSampling
+                        case 'eim'
+                            Ialpha = magicIndices(Balpha);
+                        case 'maxvol'
+                            Ialpha = maxvol2(Balpha,[],TPCA.subSamplingTol);
+                        case 'random'
+                            Ialpha = randsample(size(Balpha,1),size(Balpha,2),false);
+                    end
+
                     alphaGrids{alpha} = grids{nu}(Ialpha,:);
                     alphaBasis{alpha} = Balpha(Ialpha,:);
                     
@@ -357,7 +374,14 @@ classdef TensorPrincipalComponentAnalysis
                     tensors{alpha} = FullTensor(pcalpha,length(Salpha)+1,szalpha);
                     
                     Balpha = Balpha*pcalpha;
-                    Ialpha= magicIndices(Balpha);
+                    switch TPCA.subSampling
+                        case 'eim'
+                            Ialpha = magicIndices(Balpha);
+                        case 'maxvol'
+                            Ialpha = maxvol2(Balpha,[],TPCA.subSamplingTol);
+                        case 'random'
+                            Ialpha = randsample(size(Balpha,1),size(Balpha,2),false);
+                    end
                     alphaGrids{alpha} = alphaGrids{alpha}(Ialpha,:);
                     alphaBasis{alpha} = Balpha(Ialpha,:);
                     numberOfEvaluations = numberOfEvaluations + outputs{alpha}.numberOfEvaluations;

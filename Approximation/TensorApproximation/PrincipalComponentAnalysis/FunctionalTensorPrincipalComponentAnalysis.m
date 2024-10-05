@@ -35,6 +35,8 @@ classdef FunctionalTensorPrincipalComponentAnalysis
         PCASamplingFactor = 1;
         PCAAdaptiveSampling = false;
         projectionType = 'interpolation';
+        subSampling = 'eim'; % method for selecting indices
+        subSamplingTol = []; % tolerance for subsampling
     end
     
     methods
