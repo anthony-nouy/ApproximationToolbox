@@ -49,8 +49,8 @@ classdef AdaptiveSparseTensorAlgorithm
             % s.adaptiveSampling: adaptive sampling (true or false), true by default
             % s.adaptationRule: adaptation rule ('reducedMargin' or 'Margin'), 'reducedMargin' by default
             % s.maxIndex: maximal index, [] by default
-            % s.display: display error and stagnation indicators at final step (true or false), true by default
-            % s.displayIterations: display error and stagnation indicators at each step (true or false), true by default
+            % s.display: display error and stagnation indicators at final step (true or false), false by default
+            % s.displayIterations: display error and stagnation indicators at each step (true or false), false by default
             % s.fullOutput: convert sparse output to full output (true or false), false by default
             
             expectedAdaptationRules = {'reducedMargin','Margin'};
@@ -63,7 +63,7 @@ classdef AdaptiveSparseTensorAlgorithm
             addParamValue(p,'tolOverfit',1.1,@isscalar);
             addParamValue(p,'bulkParameter',0.5,@isscalar);
             addParamValue(p,'adaptiveSampling',true,@islogical);
-            addParamValue(p,'adaptationRule','margin',...
+            addParamValue(p,'adaptationRule','reducedMargin',...
                 @(x) any(validatestring(x,expectedAdaptationRules)));
             addParamValue(p,'maxIndex',[],@isscalar);
             addParamValue(p,'display',false,@islogical);

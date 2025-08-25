@@ -50,8 +50,8 @@ switch lower(cas)
     case 'boreholeuniform'
         X = cell(8,1);
         
-        %X{1}=NormalRandomVariable(0.1,0.0161812);
-        %X{2}=NormalRandomVariable(0,1);
+        % X{1}=NormalRandomVariable(0.1,0.0161812);
+        % X{2}=NormalRandomVariable(0,1);
         X{1}=UniformRandomVariable(0.05,0.15);
         X{2}=UniformRandomVariable(100,50000);
         
@@ -70,7 +70,6 @@ switch lower(cas)
             (1+2*x(:,7).*x(:,3)./log(x(:,2)./x(:,1))./x(:,1).^2./x(:,8)+...
             x(:,3)./x(:,5)));
         fun = @(x) g(transfer(RV,X,x));
-        
     case 'ishigami'
         % fun(x) = sin(x_1) + a*sin(x_2)^2 + b*(x_3)^4*sin(x_1)
         % (by default a=7, b=0.1)
@@ -233,7 +232,7 @@ switch lower(cas)
         fun = @(x) 1/2*sum(x.^2,2) + ...
             0.2*sum(x(:,1:end-1).*x(:,2:end).^2-x(:,1:end-1).^3,2)+...
             0.2^2/16*sum((x(:,1:end-1).^2+x(:,2:end).^2).^2,2);
-%         RV = RandomVector(UniformRandomVariable(-10,2),d);
+        % RV = RandomVector(UniformRandomVariable(-10,2),d);
         RV = RandomVector(NormalRandomVariable(),d);
         
     case 'sobol'
@@ -263,20 +262,83 @@ switch lower(cas)
         RV = RandomVector(UniformRandomVariable(0,1),d);
     case 'polynomial'
         % fun(x) = 1/(2^d) * prod_{j=1}^d (3*(x_j)^q+1)
+        % (by default d=16, q=2)
         if nargin<=1
             d = 16;
         else
             d = varargin{1};
-            if nargin <=2
-                q = 2;
-            else
-                q = varargin{2};
-            end
+        end
+        if nargin <=2
+            q = 2;
+        else
+            q = varargin{2};
         end
         fun = @(x) 1/(2^(size(x,2)))*prod(3*x.^q+1,2);
         RV = RandomVector(UniformRandomVariable(0,1),d);
+    case 'geometricbrownian'
+        if nargin<=1
+            d = 10;
+        else
+            d = varargin{1};
+        end
+        if nargin<=2
+            c = -1;
+        else
+            c = varargin{2};
+        end
+        if nargin<=3
+            s = 0.5;
+        else
+            s = varargin{3};
+        end
+        if nargin<=4
+            T = 1;
+        else
+            T = varargin{4};
+        end
+        if nargin<=5
+            n = 100;
+        else
+            n = varargin{5};
+        end
+        fun = @(x) geometricBrownian(x,c,s,T,n);
+        RV = RandomVector(NormalRandomVariable(0,1),d);
     otherwise
         error('Bad FunctionName.')
 end
 
-rng('shuffle');
+end
+
+function X = geometricBrownian(x,c,s,T,n)
+% function X = geometricBrownian(x,c,s,T,n)
+% x: N×d matrix of coefficients
+% c, s: scalars
+% T, n: final time and number of time steps
+% X: N×(n+1) matrix of samples
+% Construct a Brownian‐like path B via a truncated sine expansion,
+% then run an Euler discretization of dX = c X dt + s X dB.
+
+t  = linspace(0,T,n+1); % time discretization vector t of size 1x(n+1)
+dt = T/n;               % time increment dt
+[N,d] = size(x);        % number of samples N, parametric dimension d
+
+% Build matrix S of size d×(n+1) so that S(i,k) = sqrt(2)/pi * sin(pi*freq(i)*t(k))/freq(i) for i=1:d, k=1:n+1
+freq  = ((1:d)-0.5)';     % frequency vector of size dx1 so that freq(i) = i-0.5 for i=1:d
+S = sin(pi*freq*t)./freq; % sine matrix S of size dx(n+1)
+S = (sqrt(2)/pi)*S;       % scale each row by sqrt(2)/pi    
+
+% Build truncated sine expansion matrix (Brownian‐like path) B of size N×(n+1) as B = x*S
+B = x*S; % Brownian‐like path B of size N×(n+1)
+
+% Compute increment matrix dB of N×n so that dB(:,k) = B(:,k+1)-B(:,k) for k=1:n
+dB = diff(B,1,2); % increment matrix dB of size N×n
+% dB = B(:,2:end) - B(:,1:end-1);
+
+% Pre‐compute Euler increment matrix Inc so that Inc(:,k) = 1 + c*dt + s*dB(:,k) for k=1:n
+Inc = 1 + c*dt + s*dB; % Euler increment matrix Inc of size N×n
+
+% Compute sample matrix X of size N×(n+1) so that X(:,1)=1 and X(:,k+1) = X(:,k) .* Inc(:,k) for k=1:n
+% by starting at 1 and taking cumulative products
+X = [ones(N,1),cumprod(Inc,2)]; % sample matrix X of size N×(n+1)
+
+end
